@@ -20,6 +20,7 @@ Campus rumors spread fast, but truth is hard to validate. We need a system where
 - Anonymous rumor submission
 - Evidence submission (links/images)
 - Evidence voting (helpful/misleading)
+- **Staking layer** (users can stake points for higher influence)
 - Rumor trust score updates (Bayesian, evidence‑weighted)
 - Hash‑based duplicate vote prevention
 - Log‑scaled vote impact to cap mob influence
@@ -31,7 +32,7 @@ Campus rumors spread fast, but truth is hard to validate. We need a system where
 - Full trust‑graph anomaly detection
 - DAG‑based dependency propagation for rumor deletions
 - Automated evidence credibility scoring
-- Optional **staking layer** (users can stake points for higher influence)
+
 
 ---
 
