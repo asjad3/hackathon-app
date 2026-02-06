@@ -8,7 +8,7 @@ Build an anonymous campus rumor system with no central truth authority, while pr
 
 ## Core Idea
 
-Truth emerges via **stake-weighted anonymous voting**, **Bayesian trust scoring**, and **evidence-gated verification**, all while keeping identities hidden and preventing Sybil attacks.
+Truth emerges via **evidence-based challenges**, **Bayesian trust scoring**, and **bounded popularity**, all while keeping identities hidden and preventing Sybil attacks.
 
 ---
 
@@ -21,9 +21,9 @@ Truth emerges via **stake-weighted anonymous voting**, **Bayesian trust scoring*
 
 ### 2) Verification / Dispute System
 
-- **Stake-weighted voting** using credibility tokens (CT)
-- Winners earn **1.5×** stake; losers lose stake
-- Optional evidence gives **1.2×** influence bonus
+- **Evidence-based challenge system**: rumors are verified or disputed by attaching evidence
+- Other users vote on the **evidence quality**, not just the rumor
+- Evidence-backed votes carry higher weight than raw opinion
 
 ### 3) Trust Score Engine
 
@@ -33,23 +33,24 @@ Truth emerges via **stake-weighted anonymous voting**, **Bayesian trust scoring*
 
 ### 4) Popularity ≠ Truth
 
+- **Evidence multiplier** (evidence is required to reach high trust)
 - **Logarithmic vote scaling** caps mob impact
-- **Evidence ceiling**: without evidence, trust score max = **0.60**
 
 ### 5) Score Mutation Bug Fix
 
-- **Score freezing** after sustained verification/debunking
 - **Append-only audit log** for every score update
+- Full score history is replayable, making mutations observable and debuggable
 
 ### 6) Bot Manipulation Defense
 
 - **Behavioral fingerprinting** (timing, clustering, agreement correlation)
-- Votes get down-weighted or quarantined if suspicious
+- **Trust-graph anomaly detection** to catch coordinated bot rings
+- Suspicious accounts get down-weighted (not banned) to reduce false positives
 
 ### 7) Ghost Rumor Bug Fix
 
-- **Soft delete** + retroactive reputation recalculation
-- Prevents deleted rumors from inflating new ones
+- **Dependency graph (DAG)** for rumor relationships
+- Deleting a rumor triggers recalculation only for affected downstream nodes
 
 ---
 
@@ -64,17 +65,16 @@ Truth emerges via **stake-weighted anonymous voting**, **Bayesian trust scoring*
 
 ## Mathematical Proof (Why it’s hard to game)
 
-- **Honest voting has positive expected value**
-- **Dishonest voting has negative expected value** (stake loss + reputation decay)
-- Coordinated attackers face **log-scaling**, **evidence ceiling**, and **token cost**, making manipulation economically irrational
-- Honest voting is a **Nash Equilibrium**
+- **Game-theoretic argument**: honest behavior is the dominant strategy (Nash Equilibrium)
+- **Cost-growth bound**: attacker influence scales sublinearly (log), while cost scales linearly
+- Coordinated manipulation becomes economically irrational as group size increases
 
 ---
 
 ## Why it’s buildable in one day
 
 - No blockchain, no ML required
-- Uses simple hashing + Bayesian math
+- Uses simple hashing + Bayesian math + evidence review
 - Next.js + Supabase makes real-time scoring fast to implement
 
 ---

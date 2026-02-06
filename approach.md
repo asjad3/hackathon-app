@@ -35,10 +35,10 @@ The fundamental challenge is the **trust trilemma**: the system must be simultan
 | 1   | Students have a valid **university email** (e.g., `@campus.edu`)                                   | Needed for one-time enrollment; email is never stored or linked to activity         |
 | 2   | The system is **semi-decentralized** — there's a server, but it has no admin control over truth    | Full P2P is infeasible for a hackathon; we decentralize _trust_, not infrastructure |
 | 3   | A **semester-based salt** is distributed to all students (e.g., via LMS/email)                     | Required for the hash-based commitment scheme                                       |
-| 4   | Users act **rationally** (they prefer gaining tokens over losing them)                             | Required for the game-theoretic proof to hold                                       |
+| 4   | Users act **rationally** (they prefer higher reputation and influence over losing them)            | Required for the game-theoretic proof to hold                                       |
 | 5   | The system starts with a **bootstrapping phase** where early votes are treated as lower-confidence | Cold-start problem is acknowledged and handled                                      |
 | 6   | Rumors are **text-based** with optional image/link evidence attachments                            | Keeps scope buildable in one day                                                    |
-| 7   | A rumor's lifecycle is: `submitted → active → verified/debunked → frozen`                          | Clear state machine for score management                                            |
+| 7   | A rumor's lifecycle is: `submitted → active → verified/debunked → archived`                        | Clear state machine for score management                                            |
 
 ---
 
@@ -74,31 +74,27 @@ If the salt leaks to outsiders, they still need a valid `student_id` in the univ
 
 ---
 
-### 3.2 — Verification Mechanism: **Stake-Weighted Voting**
+### 3.2 — Verification Mechanism: **Evidence-Based Challenge System**
 
 **How it works:**
 
-1. Every new (verified-enrolled) user starts with **10 credibility tokens (CT)**
-2. To vote on a rumor (verify ✅ or dispute ❌), a user must **stake** tokens:
-    - Minimum stake: **1 CT**
-    - Maximum stake: **5 CT** (prevents whales from dominating)
-3. When a rumor reaches a **resolution state** (verified or debunked):
-    - Voters on the **winning side** get: `stake × 1.5` back (50% profit)
-    - Voters on the **losing side** lose: their entire stake
-4. **Optional evidence bonus**: Attaching evidence (link, screenshot) that gets upvoted by 3+ users gives a **1.2× multiplier** on your stake's influence
+1. A rumor is submitted as **unverified**.
+2. Any user can attach **evidence** (screenshots, links, photos) to either **support** or **dispute** the rumor.
+3. Other users vote on the **evidence quality**, not just the rumor.
+4. Evidence with higher community validation gets **higher weight** in the trust score.
 
 **Resolution triggers:**
 
 - Trust score stays above **0.75** for **48 hours** → Verified ✅
 - Trust score stays below **0.25** for **48 hours** → Debunked ❌
-- Score between 0.25–0.75 after **7 days** → Inconclusive ⚪ (all stakes returned, no profit/loss)
+- Score between 0.25–0.75 after **7 days** → Inconclusive ⚪
 
 **Why this works:**
 
-- ✅ Rational users won't stake tokens on lies (negative expected value)
-- ✅ Higher conviction = higher stake = more influence (but capped)
-- ✅ Creates natural **token scarcity** — you can't vote on everything, so you pick battles you know about
-- ✅ Directly enables the game theory proof (Section 7)
+- ✅ Shifts debate from **opinion** to **verifiable proof**
+- ✅ Enables layered trust: rumor → evidence → evidence votes
+- ✅ Strongly resists popularity-only manipulation
+- ✅ Easy to explain and demo (attach evidence, vote on evidence)
 
 ---
 
@@ -108,19 +104,21 @@ If the salt leaks to outsiders, they still need a valid `student_id` in the univ
 
 Each rumor starts with a prior trust score of **P₀ = 0.5** (maximum uncertainty).
 
-When user `i` casts a vote `vᵢ ∈ {+1, -1}` with stake `sᵢ` and voter reputation `rᵢ`:
+When user `i` casts a vote `vᵢ ∈ {+1, -1}` with evidence quality `qᵢ` and voter reputation `rᵢ`:
 
 ```
 Trust Score Update:
 
 P_new = P_old × L / (P_old × L + (1 - P_old))
 
-Where L (likelihood ratio) = exp(α × vᵢ × sᵢ × rᵢ)
+Where L (likelihood ratio) = exp(α × vᵢ × wᵢ)
+
+And vote weight wᵢ = rᵢ × (1 + qᵢ)
 ```
 
 - `α` = learning rate (tuned to 0.1 to prevent single-vote domination)
 - `vᵢ` = +1 (verify) or -1 (dispute)
-- `sᵢ` = stake amount (1–5), normalized
+- `qᵢ` = evidence quality score (0.0–1.0), derived from evidence upvotes
 - `rᵢ` = voter's reputation score (0.0–1.0), derived from historical accuracy
 
 **Voter Reputation (`rᵢ`):**
@@ -142,7 +140,7 @@ rᵢ = (correct_votes + 1) / (total_votes + 2)    // Laplace smoothing
 
 ---
 
-### 3.4 — Preventing Popularity = Truth: **Log Scaling + Evidence Ceiling**
+### 3.4 — Preventing Popularity = Truth: **Evidence Multiplier + Log Scaling**
 
 **Problem:** If 500 people believe a false rumor, raw voting would make it "true."
 
@@ -162,28 +160,20 @@ n = 1000 → weight = 7.9
 
 So 1000 votes is only **~2.4×** more powerful than 100 votes, not 10×. This **caps mob power**.
 
-#### B) Evidence Ceiling
+#### B) Evidence Multiplier
 
-A rumor's trust score has a **hard ceiling without evidence**:
-
-| Evidence Status                   | Maximum Trust Score |
-| --------------------------------- | ------------------- |
-| No evidence attached              | 0.60                |
-| Evidence attached but < 3 upvotes | 0.70                |
-| Evidence attached with 3+ upvotes | 1.00                |
-
-This means **pure popularity can never push a rumor above 0.60**. To reach "verified" (0.75+), you MUST provide evidence that other users validate.
+Evidence-backed votes carry **higher weight** than raw opinion. A rumor without evidence can move, but its score advances **slowly**; verified evidence creates **step-change** gains.
 
 **Why this works:**
 
-- ✅ Popular lies hit a ceiling at 0.60 — never reach "verified"
+- ✅ Popular lies grow slowly without proof
 - ✅ Unpopular truths with strong evidence CAN reach verified
 - ✅ Creates incentive to find evidence, not just recruit voters
-- ✅ Simple to implement: one `Math.min()` check
+- ✅ Simple to implement: evidence-weight multiplier
 
 ---
 
-### 3.5 — Score Mutation Bug Fix: **Score Freezing + Append-Only Audit Log**
+### 3.5 — Score Mutation Bug Fix: **Append-Only Audit Log**
 
 **Problem:** Verified facts from last month are mysteriously changing their trust scores.
 
@@ -193,23 +183,7 @@ This means **pure popularity can never push a rumor above 0.60**. To reach "veri
 - Voter reputation recalculations retroactively affecting old scores
 - Database race conditions on concurrent updates
 
-**Solution:**
-
-#### A) Score Freezing
-
-```
-State Machine:
-
-ACTIVE → (score > 0.75 for 48h) → VERIFIED_PENDING → (no challenges in 24h) → FROZEN ❄️
-ACTIVE → (score < 0.25 for 48h) → DEBUNKED_PENDING → (no challenges in 24h) → FROZEN ❄️
-FROZEN → (challenge with 5+ CT stake) → CHALLENGED → ACTIVE (re-opened)
-```
-
-- **FROZEN** rumors have their score **immutably recorded**
-- New votes on frozen rumors are **rejected** (unless a formal challenge is opened)
-- Re-opening a frozen rumor requires a **minimum 5 CT stake** (high bar)
-
-#### B) Append-Only Audit Log
+**Solution — Append-Only Audit Log:**
 
 Every score change is logged:
 
@@ -229,14 +203,15 @@ Every score change is logged:
 - Logs are **append-only** (INSERT only, no UPDATE/DELETE)
 - Any score can be **reconstructed** by replaying the log
 - **Anomaly detection**: if `new_score` doesn't match replayed calculation → flag corruption
+- **Auto-correction**: replayed score becomes the source of truth
 
 ---
 
-### 3.6 — Bot Detection: **Behavioral Fingerprinting**
+### 3.6 — Bot Detection: **Behavioral Fingerprinting + Trust-Graph Analysis**
 
 **Problem:** Users creating bot accounts to manipulate votes.
 
-**Solution — Statistical Pattern Detection (no ML needed):**
+**Solution — Statistical + Graph Detection (no ML needed):**
 
 #### Signals Tracked:
 
@@ -247,6 +222,12 @@ Every score change is logged:
 | **Agreement correlation** | Two accounts agree on > 90% of votes (across 10+ shared rumors) | Merge their vote weight (treat as one voter) |
 | **Stake pattern**         | Always stakes exactly the same amount                           | Soft flag (low confidence)                   |
 | **Session fingerprint**   | Same browser fingerprint hash across multiple accounts          | Hard flag + suspend                          |
+
+#### Trust-Graph Anomaly Detection
+
+- Build a graph where nodes are users and edges connect users who frequently agree.
+- Bot rings form **dense clusters** with near-identical voting patterns.
+- Clusters above a similarity threshold get **down-weighted as a group**.
 
 #### Penalty System:
 
@@ -267,7 +248,7 @@ flag_score > 0.7  → Vote quarantined (not counted until manual review)
 
 ---
 
-### 3.7 — Ghost Rumor Bug Fix: **Soft Delete with Isolation**
+### 3.7 — Ghost Rumor Bug Fix: **Dependency Graph (DAG)**
 
 **Problem:** Deleted rumors are still affecting trust scores of newer related rumors.
 
@@ -277,34 +258,18 @@ flag_score > 0.7  → Vote quarantined (not counted until manual review)
 - If rumor A was deleted but user X voted correctly on A, X's reputation still reflects that vote
 - X's inflated reputation then affects their votes on rumor B → ghost influence
 
-**Solution:**
+**Solution — Dependency Graph Propagation:**
 
-#### Soft Delete with Retroactive Recalculation
+1. Model rumor relationships as a **directed acyclic graph (DAG)**.
+2. Each rumor has edges to related rumors that reused the same evidence or witnesses.
+3. On deletion, perform a **topological walk** to recalculate only downstream nodes.
+4. This prevents deleted rumors from ghost-inflating related scores.
 
-```
-On delete(rumor_id):
-  1. Mark rumor as status = 'DELETED'
-  2. Exclude rumor from ALL future queries (filter: status != 'DELETED')
-  3. Collect all voters who voted on this rumor
-  4. For each voter:
-     - Recalculate their reputation WITHOUT this rumor's votes
-     - Update their reputation score
-  5. For each ACTIVE rumor these voters also voted on:
-     - Recalculate trust score with updated voter reputations
-  6. Log the cascade in audit trail
-```
+**Why this works:**
 
-**Implementation detail:**
-
-- Voter reputation formula already uses `correct_votes / total_votes`
-- On delete: simply decrement the relevant counter and recalculate
-- Use a **database transaction** to ensure atomicity
-- Add a `deleted_at` timestamp for audit purposes
-
-**Prevention:**
-
-- Instead of allowing arbitrary deletion, use **archival**: rumor becomes invisible to users but remains in the calculation engine until a proper recalculation cycle runs
-- Run recalculation as a **background job** to avoid blocking the UI
+- ✅ Efficient (only affected rumors are recomputed)
+- ✅ Accurate (prevents hidden dependencies from lingering)
+- ✅ Clear mental model for judges and debugging
 
 ---
 
@@ -336,10 +301,10 @@ On delete(rumor_id):
 │  └──────┬───────┘  └───────┬────────┘  └──────────┬──────────┘ │
 │         │                  │                       │            │
 │  ┌──────┴──────────────────┴───────────────────────┴──────────┐ │
-│  │                    Business Logic Layer                     │ │
-│  │  - Stake management    - Score freezing                    │ │
-│  │  - Evidence validation - Ghost rumor cleanup               │ │
-│  │  - Audit logging       - Reputation recalculation          │ │
+│  │                    Business Logic Layer                     │  │
+│  │  - Evidence validation - Trust-graph analysis              │  │
+│  │  - Audit logging       - Reputation recalculation          │  │
+│  │  - DAG cleanup         - Resolution rules                  │  │
 │  └──────────────────────────┬─────────────────────────────────┘ │
 └─────────────────────────────┼───────────────────────────────────┘
                               │
@@ -371,16 +336,14 @@ On delete(rumor_id):
 ```
 1. User opens rumor page
 2. Client computes: vote_key = SHA256(student_id + salt + rumor_id)
-3. Client sends: { vote_key, rumor_id, direction, stake, evidence? }
+3. Client sends: { vote_key, rumor_id, direction, evidence_id? }
 4. Server checks:
    a. vote_key not already used for this rumor? → proceed
-   b. User has enough tokens? → proceed
-   c. Rumor is ACTIVE (not FROZEN)? → proceed
-   d. Bot detection score < threshold? → proceed
-5. Server deducts stake from user's token balance
-6. Server computes new Bayesian trust score
-7. Server logs change to audit_log
-8. Server broadcasts new score via Supabase Realtime
+  b. Rumor is ACTIVE? → proceed
+  c. Bot detection score < threshold? → proceed
+5. Server computes new Bayesian trust score (evidence-weighted)
+6. Server logs change to audit_log
+7. Server broadcasts new score via Supabase Realtime
 9. Client updates UI in real-time
 ```
 
@@ -393,10 +356,9 @@ On delete(rumor_id):
    b. If score < 0.25 AND has been < 0.25 for 48h → DEBUNKED_PENDING
    c. If age > 7 days AND score between 0.25–0.75 → INCONCLUSIVE
 3. For VERIFIED/DEBUNKED_PENDING (after 24h grace period):
-   a. Freeze score
-   b. Distribute token rewards/penalties
-   c. Update voter reputations
-   d. Log to audit trail
+  a. Update rumor status
+  b. Update voter reputations
+  c. Log to audit trail
 ```
 
 ---
@@ -428,7 +390,7 @@ CREATE TABLE rumors (
   evidence JSONB DEFAULT '[]',
   vote_count_verify INT DEFAULT 0,
   vote_count_dispute INT DEFAULT 0,
-  score_ceiling DECIMAL(4,3) DEFAULT 0.600,  -- raised when evidence is validated
+  evidence_score DECIMAL(4,3) DEFAULT 0.000,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   frozen_at TIMESTAMPTZ,
   deleted_at TIMESTAMPTZ
@@ -440,7 +402,7 @@ CREATE TABLE votes (
   vote_key_hash VARCHAR(64) NOT NULL,  -- SHA256 of the vote_key (double-hashed)
   rumor_id UUID REFERENCES rumors(id),
   direction SMALLINT NOT NULL,  -- +1 verify, -1 dispute
-  stake INT NOT NULL CHECK (stake BETWEEN 1 AND 5),
+  evidence_id UUID,
   voter_reputation DECIMAL(4,3),  -- snapshot at time of vote
   bot_flag_score DECIMAL(4,3) DEFAULT 0.000,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -450,7 +412,6 @@ CREATE TABLE votes (
 -- Anonymous users (identified only by token_hash)
 CREATE TABLE users (
   token_hash VARCHAR(64) PRIMARY KEY,  -- SHA256 of enrollment token
-  credibility_tokens INT DEFAULT 10,
   reputation DECIMAL(4,3) DEFAULT 0.500,
   correct_votes INT DEFAULT 0,
   total_votes INT DEFAULT 0,
@@ -479,131 +440,62 @@ CREATE TABLE evidence (
   submitted_by VARCHAR(64),  -- token_hash
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Evidence votes table
+CREATE TABLE evidence_votes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  evidence_id UUID REFERENCES evidence(id),
+  vote_key_hash VARCHAR(64) NOT NULL,
+  direction SMALLINT NOT NULL,  -- +1 helpful, -1 misleading
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(vote_key_hash, evidence_id)
+);
 ```
 
 ---
 
 ## 7. Mathematical Proof: System Cannot Be Gamed
 
-### Theorem: Honest voting is a Nash Equilibrium
+### Theorem: Honest behavior is a Nash Equilibrium
 
 **Setup:**
 
 - Let there be `n` voters, of which `k` are coordinated liars
-- Each voter has reputation `rᵢ` and stakes `sᵢ` tokens
+- Each voter has reputation `rᵢ` and evidence-quality influence `qᵢ`
 - Honest voters vote according to their genuine belief
 - Liars vote to push a false rumor to "verified"
 
 **Proof:**
 
-#### Step 1: Expected Value of Honest Voting
+#### Step 1: Dominant Strategy (Game Theory)
 
-For an honest voter with reputation `r` staking `s` tokens:
+Users gain reputation and influence when their evidence-backed votes align with eventual outcomes. Dishonest behavior lowers future influence because it reduces reputation and causes evidence to be down‑weighted.
 
-```
-E[honest] = P(correct) × s × 1.5 + P(incorrect) × (-s)
-```
+Therefore, for rational users, **honest behavior maximizes long‑term influence** → a **Nash Equilibrium**.
 
-Since honest voters vote on what they believe, and beliefs correlate with truth:
+#### Step 2: Cost Growth Bound
 
-```
-P(correct | honest) ≥ 0.5 + ε    (for some ε > 0, by definition of "honest")
+Let $k$ be the number of coordinated attackers. Because vote impact is logarithmically scaled, total influence grows as $O(\ln k)$ while the **cost** of producing plausible evidence and coordinating grows as $O(k)$.
 
-E[honest] ≥ (0.5 + ε)(1.5s) + (0.5 - ε)(-s)
-         = 0.75s + 1.5εs - 0.5s + εs
-         = 0.25s + 2.5εs
-         > 0    ✓
-```
+Thus the **cost-to-influence ratio increases with $k$**, making large-scale manipulation economically irrational.
 
-**Honest voting has positive expected value.**
+#### Step 3: Evidence Constraint
 
-#### Step 2: Expected Value of Dishonest Voting
-
-For a liar voting against their actual knowledge:
-
-```
-P(correct | dishonest) ≤ 0.5 - ε
-
-E[dishonest] ≤ (0.5 - ε)(1.5s) + (0.5 + ε)(-s)
-             = 0.75s - 1.5εs - 0.5s - εs
-             = 0.25s - 2.5εs
-```
-
-For any `ε > 0` and sufficiently many interactions, this converges to **negative expected value**.
-
-Additionally, dishonest voting **degrades reputation** `rᵢ`, which:
-
-- Reduces future vote influence (less power)
-- Reduces future expected returns (lower `rᵢ` means lower weight means lower share of rewards)
-
-**Dishonest voting has negative expected value AND compounds negatively over time.**
-
-#### Step 3: Cost of Coordinated Attack
-
-For `k` coordinated liars to push a false rumor's score from 0.5 to 0.75:
-
-```
-Required: Σ(sᵢ × rᵢ) for liars > Σ(sⱼ × rⱼ) for honest voters
-
-Since max stake = 5 and new accounts have r = 0.5:
-- Each liar contributes at most: 5 × 0.5 = 2.5 effective weight
-- k liars contribute: 2.5k total weight
-
-But with log scaling:
-- Effective weight of k votes = 1 + ln(k)
-- Cost paid by liars = k × stake (linear)
-- Influence gained = O(ln(k)) (logarithmic)
-```
-
-**The cost-to-influence ratio grows as O(k / ln(k)) → ∞**
-
-To shift a score by `δ`, attackers need:
-
-```
-k ≥ e^(δ/α) / max_stake
-
-For δ = 0.25 (0.5 → 0.75) and α = 0.1:
-k ≥ e^2.5 / 5 ≈ 2.44
-
-BUT the evidence ceiling caps score at 0.60 without evidence!
-So attackers also need to fabricate evidence that gets 3+ upvotes.
-```
-
-**The attack requires both vote manipulation AND evidence fabrication — a much harder problem.**
-
-#### Step 4: Nash Equilibrium
-
-Given:
-
-- `E[honest] > 0` for all players
-- `E[dishonest] < 0` for all players (in the long run)
-- No player can improve their payoff by switching from honest to dishonest
-
-**∴ Honest voting is a Nash Equilibrium. □**
-
-#### Resilience Bound
-
-The system tolerates up to `f < n/3` coordinated bad actors before trust scores can be reliably manipulated, assuming:
-
-- Honest voters have average reputation ≥ 0.5
-- Bad actors are new accounts with reputation = 0.5
-- Evidence ceiling is enforced
-
-This aligns with classical **Byzantine Fault Tolerance** bounds.
+High trust scores require **validated evidence**. Attackers must not only coordinate votes but also fabricate evidence that passes community scrutiny, which is substantially harder and riskier than mass voting.
 
 ---
 
 ## 8. Summary of How Each Challenge is Addressed
 
-| Challenge                      | Solution                                                  | Mechanism                                                              |
-| ------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------- |
-| No central authority           | Stake-weighted voting with Bayesian scoring               | Crowd-sourced truth with mathematical convergence                      |
-| Anonymous duplicate prevention | Hash-based commitment: `SHA256(id + salt + rumor_id)`     | Deterministic, irreversible, unique per student per rumor              |
-| Popular lies winning           | Log scaling + evidence ceiling at 0.60                    | Votes alone can never verify; evidence required                        |
-| Score mutation bug             | Score freezing after 48h + append-only audit log          | Immutable snapshots with full reconstruction capability                |
-| Bot manipulation               | Behavioral fingerprinting (timing, correlation, patterns) | Statistical detection, graduated penalties                             |
-| Ghost rumor bug                | Soft delete with retroactive reputation recalculation     | Cascade cleanup removes phantom influence                              |
-| Mathematical proof             | Game theory: honest voting = Nash Equilibrium             | Positive EV for honesty, negative EV for lying, O(k/ln(k)) attack cost |
+| Challenge                      | Solution                                              | Mechanism                                                            |
+| ------------------------------ | ----------------------------------------------------- | -------------------------------------------------------------------- |
+| No central authority           | Evidence-based challenges + Bayesian scoring          | Crowd-sourced truth anchored in evidence                             |
+| Anonymous duplicate prevention | Hash-based commitment: `SHA256(id + salt + rumor_id)` | Deterministic, irreversible, unique per student per rumor            |
+| Popular lies winning           | Evidence multiplier + log scaling                     | Votes alone are weak; evidence is required for high trust            |
+| Score mutation bug             | Append-only audit log                                 | Replayable history makes mutations observable and correctable        |
+| Bot manipulation               | Behavioral + trust-graph detection                    | Statistical + structural detection of coordinated bot rings          |
+| Ghost rumor bug                | Dependency graph (DAG)                                | Recompute only affected downstream rumors                            |
+| Mathematical proof             | Game theory + cost-growth argument                    | Honest behavior is dominant; attack cost grows faster than influence |
 
 ---
 
@@ -613,12 +505,12 @@ This aligns with classical **Byzantine Fault Tolerance** bounds.
 | ----------- | -------------------------------------------------------- |
 | 9:00–10:00  | Supabase setup: tables, RLS policies, realtime config    |
 | 10:00–11:30 | Core API: enrollment, rumor submission, voting endpoint  |
-| 11:30–12:30 | Bayesian scoring engine + stake management               |
+| 11:30–12:30 | Bayesian scoring engine + evidence weighting             |
 | 12:30–1:00  | Lunch break                                              |
 | 1:00–2:00   | Frontend: rumor feed, voting UI, real-time score updates |
 | 2:00–3:00   | Bot detection engine + evidence system                   |
-| 3:00–3:30   | Score freezing + audit log                               |
-| 3:30–4:00   | Ghost rumor cleanup + soft delete                        |
+| 3:00–3:30   | Audit log + replay verification                          |
+| 3:30–4:00   | Ghost rumor cleanup + DAG recomputation                  |
 | 4:00–4:30   | Testing + bug fixes                                      |
 | 4:30–5:00   | Presentation prep + deployment to Vercel                 |
 
@@ -627,8 +519,8 @@ This aligns with classical **Byzantine Fault Tolerance** bounds.
 ## 10. Key Design Principles
 
 1. **Trust is earned, not given** — reputation must be built through accurate voting
-2. **Skin in the game** — every vote costs something; no free opinions
-3. **Evidence over popularity** — hard ceiling without proof
+2. **Evidence over opinion** — proof matters more than raw votes
+3. **Bounded popularity** — logarithmic scaling prevents mob dominance
 4. **Transparency without identity** — full audit trail, zero personal data
 5. **Graceful degradation** — bots aren't banned, they're weakened; deleted rumors are cleaned, not ignored
 6. **Mathematical rigor** — every mechanism has a formal justification
