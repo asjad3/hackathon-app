@@ -102,6 +102,8 @@ Campus rumors spread fast, but truth is hard to validate. We need a system where
 - **Detect duplicates** to reduce spam
 - **Flag harmful content** (warning only, no auto‑deletes)
 
+**MVP AI choice:** implement **rumor summarization first** (1–2 lines shown in the feed).
+
 AI never decides truth — only assists the crowd with readability and safety.
 
 ---
