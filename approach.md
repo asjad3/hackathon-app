@@ -273,11 +273,11 @@ flag_score > 0.7  → Vote quarantined (not counted until manual review)
 
 ---
 
-## 4. System Architecture
+## 4. System Architecture (Boilerplate‑Agnostic)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        CLIENT (Next.js)                         │
+│                        CLIENT (Boilerplate UI)                  │
 │                                                                 │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
 │  │  Submit   │  │  Vote    │  │  Browse  │  │  Evidence     │  │
@@ -292,7 +292,7 @@ flag_score > 0.7  → Vote quarantined (not counted until manual review)
                               │ HTTPS (vote_key, NOT student_id)
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     SERVER (Next.js API Routes)                  │
+│                     SERVER (Boilerplate API)                     │
 │                                                                 │
 │  ┌──────────────┐  ┌────────────────┐  ┌─────────────────────┐ │
 │  │  Auth Gate   │  │  Scoring       │  │  Bot Detection      │ │
@@ -310,7 +310,7 @@ flag_score > 0.7  → Vote quarantined (not counted until manual review)
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      SUPABASE (PostgreSQL)                       │
+│                      DATA STORE (SQL/NoSQL)                      │
 │                                                                 │
 │  ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌───────────────┐  │
 │  │  rumors     │ │  votes     │ │  users   │ │  audit_log    │  │
@@ -363,17 +363,17 @@ flag_score > 0.7  → Vote quarantined (not counted until manual review)
 
 ---
 
-## 5. Tech Stack
+## 5. Tech Stack (TBD — Based on Provided Boilerplate)
 
-| Layer           | Technology                            | Justification                                                  |
-| --------------- | ------------------------------------- | -------------------------------------------------------------- |
-| Frontend        | **Next.js 14 (App Router)**           | SSR for SEO, API routes for backend, fast to build             |
-| Styling         | **Tailwind CSS + shadcn/ui**          | Rapid UI development, polished look                            |
-| Database        | **Supabase (PostgreSQL)**             | Complex queries for trust scoring, realtime subscriptions, RLS |
-| Auth            | **None (by design)**                  | Anonymous system; enrollment via hashed tokens only            |
-| Hashing         | **Web Crypto API (client-side)**      | SHA-256 runs in browser, no server-side identity exposure      |
-| Deployment      | **Vercel**                            | Zero-config Next.js deployment, serverless functions           |
-| Background Jobs | **Supabase Edge Functions / pg_cron** | Hourly resolution checks, reputation recalculation             |
+| Layer           | Technology (Placeholder)              | Justification                                       |
+| --------------- | ------------------------------------- | --------------------------------------------------- |
+| Frontend        | **Boilerplate UI framework**          | Must use the provided template                      |
+| Backend         | **Boilerplate API layer**             | Must use the provided template                      |
+| Database        | **Boilerplate data store**            | Use whatever storage the boilerplate includes       |
+| Auth            | **None (by design)**                  | Anonymous system; enrollment via hashed tokens only |
+| Hashing         | **Web Crypto API (client-side)**      | SHA-256 runs in browser, no server-side identity    |
+| Deployment      | **Boilerplate deployment path**       | Use the provided deploy flow                        |
+| Background Jobs | **Simple scheduler / manual trigger** | Keep build feasible in 10–2 window                  |
 
 ---
 
@@ -499,20 +499,17 @@ High trust scores require **validated evidence**. Attackers must not only coordi
 
 ---
 
-## 9. Implementation Plan (Day 2)
+## 9. Implementation Plan (Day 2 — 10:00–2:00)
 
-| Time        | Task                                                     |
-| ----------- | -------------------------------------------------------- |
-| 9:00–10:00  | Supabase setup: tables, RLS policies, realtime config    |
-| 10:00–11:30 | Core API: enrollment, rumor submission, voting endpoint  |
-| 11:30–12:30 | Bayesian scoring engine + evidence weighting             |
-| 12:30–1:00  | Lunch break                                              |
-| 1:00–2:00   | Frontend: rumor feed, voting UI, real-time score updates |
-| 2:00–3:00   | Bot detection engine + evidence system                   |
-| 3:00–3:30   | Audit log + replay verification                          |
-| 3:30–4:00   | Ghost rumor cleanup + DAG recomputation                  |
-| 4:00–4:30   | Testing + bug fixes                                      |
-| 4:30–5:00   | Presentation prep + deployment to Vercel                 |
+| Time        | Task                                                    |
+| ----------- | ------------------------------------------------------- |
+| 10:00–10:25 | Boilerplate setup, data models, basic routing           |
+| 10:25–11:10 | Core API: rumor submission, evidence submission, voting |
+| 11:10–11:40 | Bayesian scoring engine + evidence weighting            |
+| 11:40–12:10 | Frontend: rumor feed, evidence UI, score updates        |
+| 12:10–12:30 | Bot flags (timing + agreement correlation)              |
+| 12:30–1:15  | Testing + polish                                        |
+| 1:15–2:00   | Pitch prep + deploy (using boilerplate path)            |
 
 ---
 
