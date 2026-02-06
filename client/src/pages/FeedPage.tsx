@@ -32,10 +32,12 @@ export default function FeedPage() {
 
     const filteredRumors = rumors?.filter((r) => {
         if (filter === "all") return true;
-        if (filter === "verified") return r.status === "verified";
-        if (filter === "debunked") return r.status === "debunked";
+        // Normalize status to lowercase for comparison (backend returns capitalized)
+        const status = r.status?.toLowerCase() || "";
+        if (filter === "verified") return status === "verified";
+        if (filter === "debunked") return status === "debunked";
         if (filter === "active")
-            return r.status === "active" || r.status === "inconclusive";
+            return status === "active" || status === "inconclusive";
         return true;
     });
 

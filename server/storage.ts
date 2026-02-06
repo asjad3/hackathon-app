@@ -162,11 +162,15 @@ export class DatabaseStorage implements IStorage {
         .digest('hex');
 
       // 2. Check for duplicate vote
-      const { data: existing } = await supabase
+      const { data: existing, error: checkError } = await supabase
         .from('evidence_votes')
         .select('id')
         .eq('vote_hash', voteHash)
-        .single();
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows found, which is OK
+        throw checkError;
+      }
 
       if (existing) {
         return { success: false, error: 'You have already voted on this evidence' };
@@ -307,16 +311,20 @@ export class DatabaseStorage implements IStorage {
       const misleadingCount = ev.misleading_count || 0;
       const netVotes = helpfulCount - misleadingCount;
 
+      // Only process evidence with positive net votes (community validated)
+      // Evidence with more misleading votes is ignored (not trusted)
       if (netVotes > 0) {
         // Apply log scaling: weight = 1 + ln(netVotes)
+        // This caps mob influence - 100 votes is only ~2.4x more powerful than 10 votes
         const weight = 1 + Math.log(Math.max(1, netVotes));
 
         if (ev.evidence_type === 'support') {
           alpha += weight;
-        } else {
+        } else if (ev.evidence_type === 'dispute') {
           beta += weight;
         }
       }
+      // Note: Evidence with netVotes <= 0 is ignored (community doesn't trust it)
     }
 
     // Calculate new score (Beta distribution mean)
