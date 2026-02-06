@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { MessageSquare, Eye, ArrowRight } from "lucide-react";
+import { MessageSquare, ArrowRight, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function FeedPage() {
@@ -135,8 +135,14 @@ export default function FeedPage() {
                                                         </span>
                                                     </div>
                                                     <CardTitle className="text-lg font-medium leading-relaxed line-clamp-2 group-hover:text-primary transition-colors">
-                                                        {rumor.content}
+                                                        {rumor.summary ?? rumor.content}
                                                     </CardTitle>
+                                                    {(rumor as { content_warning?: boolean }).content_warning && (
+                                                        <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500 text-xs font-medium">
+                                                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                                            Sensitive content — view with care
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </CardHeader>

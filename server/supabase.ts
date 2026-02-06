@@ -27,6 +27,8 @@ export interface Database {
           status: 'Active' | 'Verified' | 'Debunked' | 'Inconclusive';
           created_at: string;
           updated_at: string;
+          summary: string | null;
+          content_warning: boolean;
         };
         Insert: {
           id?: string;
@@ -35,12 +37,16 @@ export interface Database {
           status?: 'Active' | 'Verified' | 'Debunked' | 'Inconclusive';
           created_at?: string;
           updated_at?: string;
+          summary?: string | null;
+          content_warning?: boolean;
         };
         Update: {
           content?: string;
           trust_score?: number;
           status?: 'Active' | 'Verified' | 'Debunked' | 'Inconclusive';
           updated_at?: string;
+          summary?: string | null;
+          content_warning?: boolean;
         };
       };
       evidence: {

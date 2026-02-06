@@ -57,6 +57,12 @@
 - ✅ Evidence cards - Vote buttons, timestamps
 - ✅ Status badges - Verified (green), Debunked (red), Active (yellow)
 
+### AI (Optional — proposal §7):
+
+- ✅ **Rumor summarization** - Google Gemini generates 1–2 line summary; shown in feed when present
+- ✅ **Harmful content flag** - Gemini flags possible harassment/hate/threats; warning badge only (no auto-delete)
+- Set `GEMINI_API_KEY` in `.env` (free key: https://aistudio.google.com/apikey). If unset, rumors show full content and no flag.
+
 ---
 
 ## 🛠️ TECH STACK (FINAL)
