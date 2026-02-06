@@ -7,7 +7,7 @@
 **Hackathon Timeframe:**
 
 - Day 1: documentation + design only (deadline 6:00 PM)
-- Day 2: build MVP within **9:00–5:00**
+- Day 2: build MVP within **10:00–2:00**
 
 **Tech Stack Constraint:**
 
@@ -33,7 +33,7 @@
 - **Ghost rumor bug:** Dependency graph (DAG) with downstream recomputation
 - **Proof:** Game theory (dominant strategy) + cost-growth bound
 
-**MVP Scope (9–5 feasible):**
+**MVP Scope (10–2 feasible):**
 
 - Rumor submission
 - Evidence submission + voting
@@ -44,7 +44,7 @@
 
 **Delivery Priority:**
 
-- Only implement MVP features that can be demoed by 5:00 PM
+- Only implement MVP features that can be demoed by 2:00 PM
 - Advanced items (full trust-graph, DAG propagation) are listed as future work unless time remains
 
 **Optional AI assistive features:**

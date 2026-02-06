@@ -15,7 +15,7 @@ Campus rumors spread fast, but truth is hard to validate. We need a system where
 
 **Core idea:** Evidence‑based challenges + Bayesian trust scoring + bounded popularity, while preserving anonymity via hash‑based vote keys.
 
-### MVP Features (Doable in 9–5)
+### MVP Features (Doable in 10–2)
 
 - Anonymous rumor submission
 - Evidence submission (links/images)
@@ -106,27 +106,54 @@ AI never decides truth — only assists the crowd with readability and safety.
 
 ---
 
-## 8) Delivery Plan (9–5 Build)
+## 8) Delivery Plan (10:00–2:00 Build Window)
 
-**9:00–10:00** Set up boilerplate, data models, and basic routing
+**10:00–10:25** Set up boilerplate, data models, and basic routing
 
-**10:00–11:30** Core API: rumor submission, evidence submission, evidence voting
+**10:25–11:10** Core API: rumor submission, evidence submission, evidence voting
 
-**11:30–12:30** Bayesian scoring + log scaling + audit log
+**11:10–11:40** Bayesian scoring + log scaling + audit log
 
-**12:30–1:00** Lunch
+**11:40–12:10** Frontend feed + evidence UI + score updates
 
-**1:00–2:00** Frontend feed + evidence UI + score updates
+**12:10–12:30** Bot flags (timing + agreement correlation)
 
-**2:00–3:00** Bot flags (timing + agreement correlation)
+**12:30–1:15** Testing + polish
 
-**3:00–4:00** Testing + polish
-
-**4:00–5:00** Pitch prep + deploy (using boilerplate’s deploy path)
+**1:15–2:00** Pitch prep + deploy (using boilerplate’s deploy path)
 
 ---
 
-## 9) Success Criteria
+## 9) Submission Deliverables (Text/Markdown Only)
+
+- Complete project code (via boilerplate fork)
+- System design diagrams **in Markdown** (Mermaid or ASCII): ERD, flowchart, architecture
+- FYP‑style report (this proposal + approach + summary)
+- 5‑slide pitch outline (Markdown bullets)
+- Demo‑ready application checklist
+
+---
+
+## 10) Judging Criteria Alignment
+
+- **Innovation (20%)** → Evidence‑based verification + DAG ghost fix
+- **AI integration depth (25%)** → Summarization + duplicate detection + toxicity warnings
+- **Technical execution (25%)** → Bayesian scoring + audit log + anti‑mob scaling
+- **Documentation quality (15%)** → Clear mechanisms, assumptions, and diagrams
+- **Presentation & demo (15%)** → Live evidence voting → score change → audit log trace
+
+---
+
+## 11) Compliance with Event Rules
+
+- All work done **on‑site** during event hours
+- **No prebuilt templates** beyond the provided boilerplate
+- **AI APIs integrated on‑site** only
+- **Time‑boxed build** to 10:00–2:00
+
+---
+
+## 12) Success Criteria
 
 - Demo shows a rumor gaining/losing trust based on evidence votes
 - Duplicate votes are rejected
@@ -135,6 +162,55 @@ AI never decides truth — only assists the crowd with readability and safety.
 
 ---
 
-## 10) Answer to “Should we add ERDs?”
+## 13) Answer to “Should we add ERDs?”
 
 **Yes, add a simple ERD.** It helps judges understand data flow quickly and is easy to include. Keep it minimal (rumors ↔ evidence ↔ evidence_votes, users ↔ votes, audit_log). A one‑page ERD diagram is enough.
+
+---
+
+## 14) Diagram Placeholders (Markdown‑Only)
+
+### Architecture (Mermaid)
+
+```mermaid
+flowchart LR
+	U[User] --> UI[Frontend UI]
+	UI --> API[Backend API]
+	API --> DB[(Database)]
+	API --> RT[Realtime Updates]
+	DB --> RT
+```
+
+### ERD (Mermaid)
+
+```mermaid
+erDiagram
+	RUMORS ||--o{ EVIDENCE : has
+	EVIDENCE ||--o{ EVIDENCE_VOTES : receives
+	USERS ||--o{ VOTES : casts
+	RUMORS ||--o{ VOTES : receives
+	RUMORS ||--o{ AUDIT_LOG : tracked_by
+```
+
+### Flow (Mermaid)
+
+```mermaid
+sequenceDiagram
+	participant U as User
+	participant UI as UI
+	participant API as Backend
+	participant DB as Database
+
+	U->>UI: Submit rumor
+	UI->>API: POST /rumor
+	API->>DB: Insert rumor
+
+	U->>UI: Attach evidence
+	UI->>API: POST /evidence
+	API->>DB: Insert evidence
+
+	U->>UI: Vote on evidence
+	UI->>API: POST /evidence-vote
+	API->>DB: Insert vote
+	API->>DB: Update trust score
+```
