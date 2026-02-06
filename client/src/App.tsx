@@ -25,9 +25,10 @@ function Router() {
     );
   }
 
-  if (!user) {
-    return <LandingPage />;
-  }
+  // In development, always show the app (mock auth)
+  // if (!user) {
+  //   return <LandingPage />;
+  // }
 
   return (
     <Switch>

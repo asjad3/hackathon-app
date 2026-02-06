@@ -10,246 +10,310 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { 
-  ShieldCheck, 
-  ShieldAlert, 
-  Link as LinkIcon, 
-  History, 
-  ThumbsUp, 
-  ThumbsDown,
-  ExternalLink
+import {
+    ShieldCheck,
+    ShieldAlert,
+    Link as LinkIcon,
+    History,
+    ThumbsUp,
+    ThumbsDown,
+    ExternalLink,
 } from "lucide-react";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
 } from "recharts";
 
 export default function RumorDetailPage() {
-  const [match, params] = useRoute("/rumor/:id");
-  const id = parseInt(params?.id || "0");
-  const { data: rumor, isLoading, error } = useRumor(id);
-  const voteEvidence = useVoteEvidence();
+    const [match, params] = useRoute("/rumor/:id");
+    const id = params?.id || "";
+    const { data: rumor, isLoading, error } = useRumor(id);
+    const voteEvidence = useVoteEvidence();
 
-  if (isLoading) return <DetailSkeleton />;
-  if (error || !rumor) return <div className="p-20 text-center">Rumor not found</div>;
+    if (isLoading) return <DetailSkeleton />;
+    if (error || !rumor)
+        return <div className="p-20 text-center">Rumor not found</div>;
 
-  const supportingEvidence = rumor.evidence.filter(e => e.isSupporting);
-  const disputingEvidence = rumor.evidence.filter(e => !e.isSupporting);
+    const supportingEvidence = rumor.evidence.filter(
+        (e) => e.evidence_type === "support",
+    );
+    const disputingEvidence = rumor.evidence.filter(
+        (e) => e.evidence_type === "dispute",
+    );
 
-  const handleVote = (evidenceId: number, isHelpful: boolean) => {
-    voteEvidence.mutate({ evidenceId, isHelpful, rumorId: id });
-  };
+    const handleVote = (evidenceId: string, isHelpful: boolean) => {
+        voteEvidence.mutate({ evidenceId, isHelpful, rumorId: id });
+    };
 
-  const chartData = rumor.history.map(entry => ({
-    time: format(new Date(entry.createdAt), 'HH:mm'),
-    score: entry.newScore * 100,
-  }));
+    const chartData = rumor.history.map((entry) => ({
+        time: format(new Date(entry.created_at), "HH:mm"),
+        score: entry.new_score * 100,
+    }));
 
-  return (
-    <div className="min-h-screen bg-background pb-20">
-      <Navbar />
-      
-      <main className="container max-w-5xl mx-auto py-8 px-4">
-        {/* Header Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3 text-muted-foreground text-sm font-mono">
-                <span>RUMOR_ID: {id.toString().padStart(4, '0')}</span>
-                <span>•</span>
-                <span>{format(new Date(rumor.createdAt), "PPP p")}</span>
-              </div>
-              <h1 className="text-2xl md:text-3xl font-bold leading-tight">{rumor.content}</h1>
-            </div>
+    return (
+        <div className="min-h-screen bg-background pb-20">
+            <Navbar />
 
-            <Card className="bg-card/40 border-border/60">
-              <CardContent className="pt-6">
-                <TrustScore score={rumor.trustScore} size="lg" className="mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  This score is calculated using a Bayesian algorithm based on the quality and quantity of supporting vs. disputing evidence.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+            <main className="container max-w-5xl mx-auto py-8 px-4">
+                {/* Header Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-3 text-muted-foreground text-sm font-mono">
+                                <span>
+                                    RUMOR_ID: {id.substring(0, 8).toUpperCase()}
+                                </span>
+                                <span>•</span>
+                                <span>
+                                    {format(
+                                        new Date(rumor.created_at),
+                                        "PPP p",
+                                    )}
+                                </span>
+                            </div>
+                            <h1 className="text-2xl md:text-3xl font-bold leading-tight">
+                                {rumor.content}
+                            </h1>
+                        </div>
 
-          <div className="lg:col-span-1">
-            <Card className="h-full border-border/60 bg-card/40">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-mono flex items-center gap-2">
-                  <History className="h-4 w-4" />
-                  SCORE_HISTORY
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="time" stroke="#666" fontSize={10} tickLine={false} />
-                    <YAxis domain={[0, 100]} hide />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#111', border: '1px solid #333' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-                    <Line 
-                      type="stepAfter" 
-                      dataKey="score" 
-                      stroke="hsl(var(--primary))" 
-                      strokeWidth={2} 
-                      dot={false} 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+                        <Card className="bg-card/40 border-border/60">
+                            <CardContent className="pt-6">
+                                <TrustScore
+                                    score={rumor.trust_score}
+                                    size="lg"
+                                    className="mb-4"
+                                />
+                                <p className="text-sm text-muted-foreground">
+                                    This score is calculated using a Bayesian
+                                    algorithm based on the quality and quantity
+                                    of supporting vs. disputing evidence.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div className="lg:col-span-1">
+                        <Card className="h-full border-border/60 bg-card/40">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-mono flex items-center gap-2">
+                                    <History className="h-4 w-4" />
+                                    SCORE_HISTORY
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="h-[200px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData}>
+                                        <CartesianGrid
+                                            strokeDasharray="3 3"
+                                            stroke="rgba(255,255,255,0.05)"
+                                        />
+                                        <XAxis
+                                            dataKey="time"
+                                            stroke="#666"
+                                            fontSize={10}
+                                            tickLine={false}
+                                        />
+                                        <YAxis domain={[0, 100]} hide />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: "#111",
+                                                border: "1px solid #333",
+                                            }}
+                                            itemStyle={{ color: "#fff" }}
+                                        />
+                                        <Line
+                                            type="stepAfter"
+                                            dataKey="score"
+                                            stroke="hsl(var(--primary))"
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+
+                <Tabs defaultValue="evidence" className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <TabsList className="bg-secondary/50">
+                            <TabsTrigger value="evidence">
+                                Evidence Log
+                            </TabsTrigger>
+                            <TabsTrigger value="meta">Metadata</TabsTrigger>
+                        </TabsList>
+                        <AddEvidenceDialog rumorId={id} />
+                    </div>
+
+                    <TabsContent value="evidence" className="space-y-8">
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {/* Supporting Column */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 pb-2 border-b border-[hsl(var(--status-verified))]/20">
+                                    <ShieldCheck className="text-[hsl(var(--status-verified))]" />
+                                    <h3 className="font-semibold text-[hsl(var(--status-verified))]">
+                                        Supporting Evidence
+                                    </h3>
+                                    <Badge
+                                        variant="outline"
+                                        className="ml-auto bg-[hsl(var(--status-verified))]/10 border-[hsl(var(--status-verified))]/30"
+                                    >
+                                        {supportingEvidence.length}
+                                    </Badge>
+                                </div>
+
+                                {supportingEvidence.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground italic py-4">
+                                        No supporting evidence yet.
+                                    </p>
+                                ) : (
+                                    supportingEvidence.map((item) => (
+                                        <EvidenceCard
+                                            key={item.id}
+                                            item={item}
+                                            onVote={handleVote}
+                                            isVoting={voteEvidence.isPending}
+                                        />
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Disputing Column */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 pb-2 border-b border-destructive/20">
+                                    <ShieldAlert className="text-destructive" />
+                                    <h3 className="font-semibold text-destructive">
+                                        Disputing Evidence
+                                    </h3>
+                                    <Badge
+                                        variant="outline"
+                                        className="ml-auto bg-destructive/10 border-destructive/30"
+                                    >
+                                        {disputingEvidence.length}
+                                    </Badge>
+                                </div>
+
+                                {disputingEvidence.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground italic py-4">
+                                        No disputing evidence yet.
+                                    </p>
+                                ) : (
+                                    disputingEvidence.map((item) => (
+                                        <EvidenceCard
+                                            key={item.id}
+                                            item={item}
+                                            onVote={handleVote}
+                                            isVoting={voteEvidence.isPending}
+                                        />
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="meta">
+                        <Card>
+                            <CardContent className="pt-6 font-mono text-sm space-y-2">
+                                <p>Status: {rumor.status}</p>
+                                <p>Evidence Count: {rumor.evidence.length}</p>
+                                <p>
+                                    Created:{" "}
+                                    {new Date(rumor.created_at).toISOString()}
+                                </p>
+                                <p>
+                                    Last Updated:{" "}
+                                    {new Date(rumor.updated_at).toISOString()}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
+            </main>
         </div>
-
-        <Tabs defaultValue="evidence" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <TabsList className="bg-secondary/50">
-              <TabsTrigger value="evidence">Evidence Log</TabsTrigger>
-              <TabsTrigger value="meta">Metadata</TabsTrigger>
-            </TabsList>
-            <AddEvidenceDialog rumorId={id} />
-          </div>
-
-          <TabsContent value="evidence" className="space-y-8">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Supporting Column */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-[hsl(var(--status-verified))]/20">
-                  <ShieldCheck className="text-[hsl(var(--status-verified))]" />
-                  <h3 className="font-semibold text-[hsl(var(--status-verified))]">Supporting Evidence</h3>
-                  <Badge variant="outline" className="ml-auto bg-[hsl(var(--status-verified))]/10 border-[hsl(var(--status-verified))]/30">
-                    {supportingEvidence.length}
-                  </Badge>
-                </div>
-                
-                {supportingEvidence.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic py-4">No supporting evidence yet.</p>
-                ) : (
-                  supportingEvidence.map(item => (
-                    <EvidenceCard 
-                      key={item.id} 
-                      item={item} 
-                      onVote={handleVote} 
-                      isVoting={voteEvidence.isPending} 
-                    />
-                  ))
-                )}
-              </div>
-
-              {/* Disputing Column */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-destructive/20">
-                  <ShieldAlert className="text-destructive" />
-                  <h3 className="font-semibold text-destructive">Disputing Evidence</h3>
-                  <Badge variant="outline" className="ml-auto bg-destructive/10 border-destructive/30">
-                    {disputingEvidence.length}
-                  </Badge>
-                </div>
-
-                {disputingEvidence.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic py-4">No disputing evidence yet.</p>
-                ) : (
-                  disputingEvidence.map(item => (
-                    <EvidenceCard 
-                      key={item.id} 
-                      item={item} 
-                      onVote={handleVote} 
-                      isVoting={voteEvidence.isPending} 
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="meta">
-            <Card>
-              <CardContent className="pt-6 font-mono text-sm space-y-2">
-                <p>Status: {rumor.status}</p>
-                <p>Views: {rumor.viewCount}</p>
-                <p>Created: {new Date(rumor.createdAt).toISOString()}</p>
-                <p>Last Updated: {new Date(rumor.updatedAt).toISOString()}</p>
-                <p>Evidence Count: {rumor.evidence.length}</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
-  );
+    );
 }
 
-function EvidenceCard({ item, onVote, isVoting }: { item: any, onVote: any, isVoting: boolean }) {
-  return (
-    <Card className="bg-card/30 border-border/50 hover:bg-card/50 transition-colors">
-      <CardContent className="p-4 space-y-3">
-        <p className="text-sm leading-relaxed">{item.content}</p>
-        
-        {item.url && (
-          <a 
-            href={item.url} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="flex items-center gap-1.5 text-xs text-primary hover:underline w-fit"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Source Link
-          </a>
-        )}
+function EvidenceCard({
+    item,
+    onVote,
+    isVoting,
+}: {
+    item: any;
+    onVote: any;
+    isVoting: boolean;
+}) {
+    return (
+        <Card className="bg-card/30 border-border/50 hover:bg-card/50 transition-colors">
+            <CardContent className="p-4 space-y-3">
+                <p className="text-sm leading-relaxed">
+                    {item.content_text || "No description provided"}
+                </p>
 
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-xs text-muted-foreground font-mono">
-            {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-          </span>
-          
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-7 px-2 text-xs hover:text-[hsl(var(--status-verified))] hover:bg-[hsl(var(--status-verified))]/10"
-              onClick={() => onVote(item.id, true)}
-              disabled={isVoting}
-            >
-              <ThumbsUp className="h-3 w-3 mr-1.5" />
-              Helpful ({item.helpfulVotes})
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-7 px-2 text-xs hover:text-destructive hover:bg-destructive/10"
-              onClick={() => onVote(item.id, false)}
-              disabled={isVoting}
-            >
-              <ThumbsDown className="h-3 w-3 mr-1.5" />
-              Misleading ({item.misleadingVotes})
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+                {item.content_url && (
+                    <a
+                        href={item.content_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-primary hover:underline w-fit"
+                    >
+                        <ExternalLink className="h-3 w-3" />
+                        Source Link
+                    </a>
+                )}
+
+                <div className="flex items-center justify-between pt-2">
+                    <span className="text-xs text-muted-foreground font-mono">
+                        {formatDistanceToNow(new Date(item.created_at), {
+                            addSuffix: true,
+                        })}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs hover:text-[hsl(var(--status-verified))] hover:bg-[hsl(var(--status-verified))]/10"
+                            onClick={() => onVote(item.id, true)}
+                            disabled={isVoting}
+                        >
+                            <ThumbsUp className="h-3 w-3 mr-1.5" />
+                            Helpful ({item.helpful_votes})
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => onVote(item.id, false)}
+                            disabled={isVoting}
+                        >
+                            <ThumbsDown className="h-3 w-3 mr-1.5" />
+                            Misleading ({item.misleading_votes})
+                        </Button>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }
 
 function DetailSkeleton() {
-  return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container max-w-5xl mx-auto py-8 px-4 space-y-8">
-        <Skeleton className="h-8 w-3/4" />
-        <Skeleton className="h-32 w-full" />
-        <div className="grid md:grid-cols-2 gap-8">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-64 w-full" />
+    return (
+        <div className="min-h-screen bg-background">
+            <Navbar />
+            <div className="container max-w-5xl mx-auto py-8 px-4 space-y-8">
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-32 w-full" />
+                <div className="grid md:grid-cols-2 gap-8">
+                    <Skeleton className="h-64 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

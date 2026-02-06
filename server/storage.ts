@@ -1,179 +1,317 @@
-import { db } from "./db";
-import { 
-  rumors, evidence, evidenceVotes, auditLog,
-  type Rumor, type InsertRumor, 
-  type Evidence, type InsertEvidence,
-  type EvidenceVote, type AuditLogEntry,
-  type RumorStatus
-} from "@shared/schema";
-import { eq, sql, and } from "drizzle-orm";
-import { crypto } from "crypto";
+import { supabase, type Rumor, type Evidence, type AuditLog } from "./supabase";
+import { createHash } from 'crypto';
+
+type RumorStatus = 'Active' | 'Verified' | 'Debunked' | 'Inconclusive';
+
+export interface RumorWithCount extends Rumor {
+  evidence_count: number;
+}
+
+export interface EvidenceWithVotes extends Evidence {
+  helpful_votes: number;
+  misleading_votes: number;
+}
+
+export interface RumorDetail extends Rumor {
+  evidence: EvidenceWithVotes[];
+  history: AuditLog[];
+}
 
 export interface IStorage {
   // Rumors
-  getRumors(sort?: 'recent' | 'popular'): Promise<(Rumor & { evidenceCount: number })[]>;
-  getRumor(id: number): Promise<(Rumor & { evidence: (Evidence & { helpfulVotes: number, misleadingVotes: number })[], history: AuditLogEntry[] }) | undefined>;
-  createRumor(rumor: InsertRumor): Promise<Rumor>;
-  updateRumorStatus(id: number, status: RumorStatus): Promise<Rumor>;
+  getRumors(): Promise<RumorWithCount[]>;
+  getRumor(id: string): Promise<RumorDetail | null>;
+  createRumor(content: string): Promise<Rumor>;
 
   // Evidence
-  createEvidence(evidence: InsertEvidence): Promise<Evidence>;
-  getEvidenceForRumor(rumorId: number): Promise<Evidence[]>;
+  createEvidence(data: { rumorId: string; evidenceType: 'support' | 'dispute'; contentType: 'link' | 'image' | 'text'; contentUrl?: string; contentText?: string }): Promise<Evidence>;
 
   // Votes & Scoring
-  createVote(vote: { evidenceId: number, userId: string, isHelpful: boolean }): Promise<{ success: boolean, newTrustScore?: number, newStatus?: string }>;
+  createVote(data: { evidenceId: string; userId: string; isHelpful: boolean }): Promise<{ success: boolean; newTrustScore?: number; newStatus?: string; error?: string }>;
 }
 
 export class DatabaseStorage implements IStorage {
-  async getRumors(sort: 'recent' | 'popular' = 'recent'): Promise<(Rumor & { evidenceCount: number })[]> {
-    const allRumors = await db.select().from(rumors).orderBy(sort === 'recent' ? sql`${rumors.createdAt} DESC` : sql`${rumors.viewCount} DESC`);
-    
-    // Enrich with evidence count (naive N+1 for now, can optimize later)
-    const results = [];
-    for (const rumor of allRumors) {
-      const [count] = await db.select({ count: sql<number>`count(*)` }).from(evidence).where(eq(evidence.rumorId, rumor.id));
-      results.push({ ...rumor, evidenceCount: Number(count.count) });
+  async getRumors(): Promise<RumorWithCount[]> {
+    // Get all rumors
+    const { data: rumors, error } = await supabase
+      .from('rumors')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!rumors) return [];
+
+    // Get evidence counts for each rumor
+    const rumorsWithCounts = await Promise.all(
+      rumors.map(async (rumor) => {
+        const { count } = await supabase
+          .from('evidence')
+          .select('*', { count: 'exact', head: true })
+          .eq('rumor_id', rumor.id);
+
+        return {
+          ...rumor,
+          evidence_count: count || 0
+        };
+      })
+    );
+
+    return rumorsWithCounts;
+  }
+
+  async getRumor(id: string): Promise<RumorDetail | null> {
+    // Get rumor
+    const { data: rumor, error: rumorError } = await supabase
+      .from('rumors')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (rumorError || !rumor) return null;
+
+    // Get evidence with vote counts
+    const { data: evidenceList, error: evidenceError } = await supabase
+      .from('evidence')
+      .select('*')
+      .eq('rumor_id', id);
+
+    if (evidenceError) throw evidenceError;
+
+    const evidenceWithVotes: EvidenceWithVotes[] = await Promise.all(
+      (evidenceList || []).map(async (ev) => {
+        const { count: helpful } = await supabase
+          .from('evidence_votes')
+          .select('*', { count: 'exact', head: true })
+          .eq('evidence_id', ev.id)
+          .eq('vote_type', 'helpful');
+
+        const { count: misleading } = await supabase
+          .from('evidence_votes')
+          .select('*', { count: 'exact', head: true })
+          .eq('evidence_id', ev.id)
+          .eq('vote_type', 'misleading');
+
+        return {
+          ...ev,
+          helpful_votes: helpful || 0,
+          misleading_votes: misleading || 0
+        };
+      })
+    );
+
+    // Get audit history
+    const { data: history, error: historyError } = await supabase
+      .from('audit_log')
+      .select('*')
+      .eq('rumor_id', id)
+      .order('created_at', { ascending: false });
+
+    if (historyError) throw historyError;
+
+    return {
+      ...rumor,
+      evidence: evidenceWithVotes,
+      history: history || []
+    };
+  }
+
+  async createRumor(content: string): Promise<Rumor> {
+    const { data, error } = await supabase
+      .from('rumors')
+      .insert({ content })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async createEvidence(data: {
+    rumorId: string;
+    evidenceType: 'support' | 'dispute';
+    contentType: 'link' | 'image' | 'text';
+    contentUrl?: string;
+    contentText?: string;
+  }): Promise<Evidence> {
+    const { data: evidence, error } = await supabase
+      .from('evidence')
+      .insert({
+        rumor_id: data.rumorId,
+        evidence_type: data.evidenceType,
+        content_type: data.contentType,
+        content_url: data.contentUrl || null,
+        content_text: data.contentText || null
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return evidence;
+  }
+
+  async createVote(data: {
+    evidenceId: string;
+    userId: string;
+    isHelpful: boolean;
+  }): Promise<{ success: boolean; newTrustScore?: number; newStatus?: string; error?: string }> {
+    try {
+      // 1. Generate anonymous vote hash
+      const salt = process.env.VOTE_SALT || 'HACKATHON_SECRET_SALT_2026';
+      const voteHash = createHash('sha256')
+        .update(`${data.userId}:${salt}:${data.evidenceId}`)
+        .digest('hex');
+
+      // 2. Check for duplicate vote
+      const { data: existing } = await supabase
+        .from('evidence_votes')
+        .select('id')
+        .eq('vote_hash', voteHash)
+        .single();
+
+      if (existing) {
+        return { success: false, error: 'You have already voted on this evidence' };
+      }
+
+      // 3. Check bot behavior (timing pattern)
+      await this.checkBotBehavior(voteHash);
+
+      // 4. Insert vote
+      const voteType = data.isHelpful ? 'helpful' : 'misleading';
+      const { error: voteError } = await supabase
+        .from('evidence_votes')
+        .insert({
+          evidence_id: data.evidenceId,
+          vote_hash: voteHash,
+          vote_type: voteType
+        });
+
+      if (voteError) throw voteError;
+
+      // 5. Update evidence vote counts
+      const { data: evidence } = await supabase
+        .from('evidence')
+        .select('*, rumor_id')
+        .eq('id', data.evidenceId)
+        .single();
+
+      if (!evidence) throw new Error('Evidence not found');
+
+      // Increment the appropriate counter
+      const field = data.isHelpful ? 'helpful_count' : 'misleading_count';
+      const newCount = (evidence[field] || 0) + 1;
+
+      await supabase
+        .from('evidence')
+        .update({ [field]: newCount })
+        .eq('id', data.evidenceId);
+
+      // 6. Recalculate rumor trust score
+      const result = await this.updateRumorScore(evidence.rumor_id);
+
+      return {
+        success: true,
+        newTrustScore: result.newScore,
+        newStatus: result.newStatus
+      };
+
+    } catch (err) {
+      console.error('Vote creation error:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to create vote' };
     }
-    return results;
   }
 
-  async getRumor(id: number): Promise<(Rumor & { evidence: (Evidence & { helpfulVotes: number, misleadingVotes: number })[], history: AuditLogEntry[] }) | undefined> {
-    const [rumor] = await db.select().from(rumors).where(eq(rumors.id, id));
-    if (!rumor) return undefined;
+  private async checkBotBehavior(voteHash: string): Promise<void> {
+    // Get or create user fingerprint
+    const { data: fingerprint } = await supabase
+      .from('user_fingerprints')
+      .select('*')
+      .eq('vote_hash', voteHash)
+      .single();
 
-    // Increment view count
-    await db.update(rumors).set({ viewCount: rumor.viewCount + 1 }).where(eq(rumors.id, id));
+    const now = Date.now();
 
-    const rumorEvidence = await db.select().from(evidence).where(eq(evidence.rumorId, id));
-    
-    const enrichedEvidence = [];
-    for (const ev of rumorEvidence) {
-      const helpful = await db.select({ count: sql<number>`count(*)` }).from(evidenceVotes).where(and(eq(evidenceVotes.evidenceId, ev.id), eq(evidenceVotes.isHelpful, true)));
-      const misleading = await db.select({ count: sql<number>`count(*)` }).from(evidenceVotes).where(and(eq(evidenceVotes.evidenceId, ev.id), eq(evidenceVotes.isHelpful, false)));
-      
-      enrichedEvidence.push({
-        ...ev,
-        helpfulVotes: Number(helpful[0].count),
-        misleadingVotes: Number(misleading[0].count),
-      });
+    if (!fingerprint) {
+      // Create new fingerprint
+      await supabase
+        .from('user_fingerprints')
+        .insert({
+          vote_hash: voteHash,
+          vote_count: 1
+        });
+      return;
     }
 
-    const history = await db.select().from(auditLog).where(eq(auditLog.rumorId, id)).orderBy(sql`${auditLog.createdAt} DESC`);
+    // Check timing pattern - get recent votes
+    const { data: recentVotes } = await supabase
+      .from('evidence_votes')
+      .select('created_at')
+      .eq('vote_hash', voteHash)
+      .order('created_at', { ascending: false })
+      .limit(5);
 
-    return { ...rumor, evidence: enrichedEvidence, history };
-  }
+    if (recentVotes && recentVotes.length >= 2) {
+      const lastVoteTime = new Date(recentVotes[0].created_at).getTime();
+      const secondLastTime = new Date(recentVotes[1].created_at).getTime();
+      const timeDiff = (now - lastVoteTime) / 1000; // seconds
 
-  async createRumor(insertRumor: InsertRumor): Promise<Rumor> {
-    const [rumor] = await db.insert(rumors).values(insertRumor).returning();
-    return rumor;
-  }
+      if (timeDiff < 2) {
+        console.warn(`⚠️ BOT FLAG: Rapid voting detected for hash ${voteHash.substring(0, 8)}...`);
 
-  async updateRumorStatus(id: number, status: RumorStatus): Promise<Rumor> {
-    const [rumor] = await db.update(rumors).set({ status }).where(eq(rumors.id, id)).returning();
-    return rumor;
-  }
-
-  async createEvidence(insertEvidence: InsertEvidence): Promise<Evidence> {
-    const [ev] = await db.insert(evidence).values(insertEvidence).returning();
-    
-    // Trigger a score recalculation (new evidence acts as a vote of sorts, but for MVP we wait for votes ON evidence)
-    // Actually, simply adding evidence shouldn't change the score until the evidence itself is vetted. 
-    // BUT, for a lively system, maybe we give it a tiny initial weight? 
-    // Let's stick to the proposal: "Trust score updates (Bayesian, evidence-weighted)" implies evidence needs weight.
-    
-    return ev;
-  }
-
-  async getEvidenceForRumor(rumorId: number): Promise<Evidence[]> {
-    return db.select().from(evidence).where(eq(evidence.rumorId, rumorId));
-  }
-
-  async createVote({ evidenceId, userId, isHelpful }: { evidenceId: number, userId: string, isHelpful: boolean }): Promise<{ success: boolean, newTrustScore?: number, newStatus?: string }> {
-    // 1. Generate Anonymous Hash
-    // Using a dynamic salt would be better, but for MVP we use a consistent one
-    const salt = process.env.VOTE_SALT || "HACKATHON_SECRET_SALT_2026"; 
-    const hashInput = `${userId}:${salt}:${evidenceId}`;
-    
-    // Using simple SHA256 simulation since I can't import crypto easily in this environment without checking node types
-    // actually I can import crypto in node.
-    const { createHash } = await import('crypto');
-    const voteHash = createHash('sha256').update(hashInput).digest('hex');
-
-    // 2. Check for duplicate vote
-    const existing = await db.select().from(evidenceVotes).where(eq(evidenceVotes.voteHash, voteHash));
-    if (existing.length > 0) {
-      throw new Error("Duplicate vote detected");
+        // Add bot flag
+        const currentFlags = fingerprint.bot_flags || [];
+        await supabase
+          .from('user_fingerprints')
+          .update({
+            bot_flags: [...currentFlags, { type: 'rapid_voting', timestamp: new Date().toISOString() }],
+            is_suspicious: true
+          })
+          .eq('vote_hash', voteHash);
+      }
     }
 
-    // 3. Insert Vote
-    await db.insert(evidenceVotes).values({
-      evidenceId,
-      voteHash,
-      isHelpful
-    });
-
-    // 4. Recalculate Rumor Score
-    const [targetEvidence] = await db.select().from(evidence).where(eq(evidence.id, evidenceId));
-    if (!targetEvidence) throw new Error("Evidence not found");
-
-    const rumorId = targetEvidence.rumorId;
-    const [rumor] = await db.select().from(rumors).where(eq(rumors.id, rumorId));
-
-    const newScore = await this.calculateBayesianScore(rumorId);
-    
-    // 5. Update Status based on thresholds
-    let newStatus: RumorStatus = 'active';
-    if (newScore >= 0.8) newStatus = 'verified';
-    else if (newScore <= 0.2) newStatus = 'debunked';
-    else if (newScore >= 0.4 && newScore <= 0.6) newStatus = 'inconclusive';
-    else newStatus = 'active';
-
-    // 6. Update Rumor and Audit Log
-    if (Math.abs(newScore - rumor.trustScore) > 0.001 || newStatus !== rumor.status) {
-      await db.update(rumors).set({ trustScore: newScore, status: newStatus }).where(eq(rumors.id, rumorId));
-      
-      await db.insert(auditLog).values({
-        rumorId,
-        oldScore: rumor.trustScore,
-        newScore,
-        changeReason: `Vote on evidence ${evidenceId} (Helpful: ${isHelpful})`,
-      });
-    }
-
-    return { success: true, newTrustScore: newScore, newStatus };
+    // Update vote count
+    await supabase
+      .from('user_fingerprints')
+      .update({ vote_count: fingerprint.vote_count + 1 })
+      .eq('vote_hash', voteHash);
   }
 
-  private async calculateBayesianScore(rumorId: number): Promise<number> {
-    // Fetch all evidence
-    const allEvidence = await db.select().from(evidence).where(eq(evidence.rumorId, rumorId));
+  private async updateRumorScore(rumorId: string): Promise<{ newScore: number; newStatus: RumorStatus }> {
+    // Get current rumor
+    const { data: rumor } = await supabase
+      .from('rumors')
+      .select('trust_score')
+      .eq('id', rumorId)
+      .single();
 
-    let alpha = 1.0; // Prior success (Supporting)
-    let beta = 1.0;  // Prior failure (Disputing)
+    if (!rumor) throw new Error('Rumor not found');
 
-    for (const ev of allEvidence) {
-      // Get votes for this evidence
-      const helpful = await db.select({ count: sql<number>`count(*)` }).from(evidenceVotes).where(and(eq(evidenceVotes.evidenceId, ev.id), eq(evidenceVotes.isHelpful, true)));
-      const misleading = await db.select({ count: sql<number>`count(*)` }).from(evidenceVotes).where(and(eq(evidenceVotes.evidenceId, ev.id), eq(evidenceVotes.isHelpful, false)));
-      
-      const hCount = Number(helpful[0].count);
-      const mCount = Number(misleading[0].count);
+    const oldScore = rumor.trust_score;
 
-      // Calculate Evidence Quality/Weight using Log Scaling
-      // weight = 1 + ln(votes) roughly.
-      // We want net positive votes to count towards the evidence's direction.
-      
-      const netVotes = hCount - mCount;
-      
-      // If net votes < 0, the evidence is deemed "bad" and should probably have 0 weight or even negative impact?
-      // For simplicity:
-      // If evidence is supporting AND verified (net > 0): Add to Alpha
-      // If evidence is disputing AND verified (net > 0): Add to Beta
-      // If evidence is misleading (net < 0): Ignore it (it's noise)
-      
+    // Get all evidence for this rumor
+    const { data: evidenceList } = await supabase
+      .from('evidence')
+      .select('*')
+      .eq('rumor_id', rumorId);
+
+    if (!evidenceList || evidenceList.length === 0) {
+      return { newScore: 0.5, newStatus: 'Active' };
+    }
+
+    // Calculate Bayesian score with log scaling
+    let alpha = 1.0; // Prior for supporting
+    let beta = 1.0;  // Prior for disputing
+
+    for (const ev of evidenceList) {
+      const helpfulCount = ev.helpful_count || 0;
+      const misleadingCount = ev.misleading_count || 0;
+      const netVotes = helpfulCount - misleadingCount;
+
       if (netVotes > 0) {
-        const weight = 1 + Math.log(netVotes); // Log scale impact
-        
-        if (ev.isSupporting) {
+        // Apply log scaling: weight = 1 + ln(netVotes)
+        const weight = 1 + Math.log(Math.max(1, netVotes));
+
+        if (ev.evidence_type === 'support') {
           alpha += weight;
         } else {
           beta += weight;
@@ -181,8 +319,37 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Mean of Beta distribution
-    return alpha / (alpha + beta);
+    // Calculate new score (Beta distribution mean)
+    const newScore = alpha / (alpha + beta);
+
+    // Determine status based on thresholds
+    let newStatus: RumorStatus = 'Active';
+    if (newScore >= 0.8) newStatus = 'Verified';
+    else if (newScore <= 0.2) newStatus = 'Debunked';
+    else if (newScore >= 0.4 && newScore <= 0.6) newStatus = 'Inconclusive';
+
+    // Update rumor
+    await supabase
+      .from('rumors')
+      .update({
+        trust_score: newScore,
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', rumorId);
+
+    // Log to audit trail
+    await supabase
+      .from('audit_log')
+      .insert({
+        rumor_id: rumorId,
+        event_type: 'score_update',
+        old_score: oldScore,
+        new_score: newScore,
+        metadata: { alpha, beta, threshold: newStatus }
+      });
+
+    return { newScore, newStatus };
   }
 }
 
