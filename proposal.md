@@ -74,12 +74,12 @@ Campus rumors spread fast, but truth is hard to validate. We need a system where
 
 ---
 
-## 5) Architecture Overview
+## 5) Architecture Overview (Boilerplate‑Agnostic)
 
-- **Frontend:** Next.js (App Router) + Tailwind
-- **Backend:** Next.js API routes
-- **Database:** Supabase (PostgreSQL)
-- **Realtime:** Supabase Realtime for score updates
+- **Frontend:** Provided boilerplate UI framework (to be determined tomorrow)
+- **Backend:** Provided boilerplate API layer
+- **Database:** Provided storage layer (SQL or NoSQL)
+- **Realtime (optional):** If boilerplate supports it, use for live score updates
 
 ---
 
@@ -108,7 +108,7 @@ AI never decides truth — only assists the crowd with readability and safety.
 
 ## 8) Delivery Plan (9–5 Build)
 
-**9:00–10:00** Supabase setup (tables, RLS, realtime)
+**9:00–10:00** Set up boilerplate, data models, and basic routing
 
 **10:00–11:30** Core API: rumor submission, evidence submission, evidence voting
 
@@ -116,13 +116,13 @@ AI never decides truth — only assists the crowd with readability and safety.
 
 **12:30–1:00** Lunch
 
-**1:00–2:00** Frontend feed + evidence UI + realtime updates
+**1:00–2:00** Frontend feed + evidence UI + score updates
 
 **2:00–3:00** Bot flags (timing + agreement correlation)
 
 **3:00–4:00** Testing + polish
 
-**4:00–5:00** Pitch prep + deploy
+**4:00–5:00** Pitch prep + deploy (using boilerplate’s deploy path)
 
 ---
 
