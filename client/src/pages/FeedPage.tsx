@@ -145,7 +145,7 @@ export default function FeedPage() {
                                             />
                                         </CardContent>
 
-                                        <CardFooter className="pt-0 pb-4 pl-6 text-xs text-muted-foreground flex justify-between items-center border-t border-border/30 mt-2 pt-3">
+                                        <CardFooter className="pb-4 pl-6 text-xs text-muted-foreground flex justify-between items-center border-t border-border/30 mt-2 pt-3">
                                             <div className="flex gap-4">
                                                 <span className="flex items-center gap-1.5 hover:text-foreground transition-colors">
                                                     <MessageSquare className="h-3.5 w-3.5" />
