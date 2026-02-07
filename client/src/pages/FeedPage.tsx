@@ -156,6 +156,16 @@ export default function FeedPage() {
                                             </div>
                                         </CardHeader>
 
+                                        {(rumor as any).image_url && (
+                                            <div className="px-6 pl-6 pb-1">
+                                                <img
+                                                    src={(rumor as any).image_url}
+                                                    alt=""
+                                                    className="w-full h-40 object-cover rounded-lg border border-border/30"
+                                                />
+                                            </div>
+                                        )}
+
                                         <CardContent className="pb-4 pl-6">
                                             <TrustScore
                                                 score={

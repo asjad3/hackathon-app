@@ -21,7 +21,7 @@ export interface IStorage {
     // Rumors
     getRumors(): Promise<RumorWithCount[]>;
     getRumor(id: string): Promise<RumorDetail | null>;
-    createRumor(content: string): Promise<Rumor>;
+    createRumor(content: string, imageUrl?: string | null): Promise<Rumor>;
 
     // Evidence
     createEvidence(data: {
@@ -170,10 +170,10 @@ export class DatabaseStorage implements IStorage {
         };
     }
 
-    async createRumor(content: string): Promise<Rumor> {
+    async createRumor(content: string, imageUrl?: string | null): Promise<Rumor> {
         const { data, error } = await supabase
             .from("rumors")
-            .insert({ content })
+            .insert({ content, image_url: imageUrl || null })
             .select()
             .single();
 

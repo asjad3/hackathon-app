@@ -66,7 +66,7 @@ export async function registerRoutes(
 
         try {
             const input = api.rumors.create.input.parse(req.body);
-            const rumor = await storage.createRumor(input.content);
+            const rumor = await storage.createRumor(input.content, input.imageUrl);
             res.status(201).json(rumor);
         } catch (err) {
             if (err instanceof z.ZodError) {
@@ -89,11 +89,15 @@ export async function registerRoutes(
 
         try {
             const input = api.evidence.create.input.parse(req.body);
+            const imageUrl = (req.body as any).imageUrl as string | undefined;
+            let contentType: "link" | "image" | "text" = "text";
+            if (imageUrl) contentType = "image";
+            else if (input.url) contentType = "link";
             const evidence = await storage.createEvidence({
                 rumorId: req.params.id as string,
                 evidenceType: input.isSupporting ? "support" : "dispute",
-                contentType: input.url ? "link" : "text",
-                contentUrl: input.url ?? undefined,
+                contentType,
+                contentUrl: imageUrl || input.url || undefined,
                 contentText: input.content,
             });
             res.status(201).json(evidence);

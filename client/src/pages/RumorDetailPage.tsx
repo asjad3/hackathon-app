@@ -81,6 +81,15 @@ export default function RumorDetailPage() {
                             <h1 className="text-2xl md:text-3xl font-bold leading-tight">
                                 {rumor.content}
                             </h1>
+                            {(rumor as any).image_url && (
+                                <div className="rounded-lg overflow-hidden border border-border/50">
+                                    <img
+                                        src={(rumor as any).image_url}
+                                        alt="Attached to rumor"
+                                        className="w-full max-h-[400px] object-contain bg-black/20"
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <Card className="bg-card/40 border-border/60">
@@ -259,7 +268,18 @@ function EvidenceCard({
                     {item.content_text || "No description provided"}
                 </p>
 
-                {item.content_url && (
+                {item.content_type === "image" && item.content_url && (
+                    <div className="rounded-lg overflow-hidden border border-border/30">
+                        <img
+                            src={item.content_url}
+                            alt="Evidence attachment"
+                            className="w-full max-h-52 object-contain bg-black/10 cursor-pointer"
+                            onClick={() => window.open(item.content_url, '_blank')}
+                        />
+                    </div>
+                )}
+
+                {item.content_type !== "image" && item.content_url && (
                     <a
                         href={item.content_url}
                         target="_blank"

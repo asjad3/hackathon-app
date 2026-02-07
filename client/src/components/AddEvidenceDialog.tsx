@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useCreateEvidence } from "@/hooks/use-rumors";
 import {
     Dialog,
@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { PlusCircle, ShieldCheck, ShieldAlert } from "lucide-react";
+import { PlusCircle, ShieldCheck, ShieldAlert, ImagePlus, X, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,6 +27,8 @@ import {
     FormLabel,
 } from "@/components/ui/form";
 import { insertEvidenceSchema } from "@shared/schema";
+import { uploadImage, isCloudinaryConfigured } from "@/lib/cloudinary";
+import { useToast } from "@/hooks/use-toast";
 
 // Schema for the form - manually handling the boolean logic for UI
 const formSchema = z.object({
@@ -43,7 +45,12 @@ interface AddEvidenceDialogProps {
 
 export function AddEvidenceDialog({ rumorId }: AddEvidenceDialogProps) {
     const [open, setOpen] = useState(false);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const createEvidence = useCreateEvidence();
+    const { toast } = useToast();
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -54,25 +61,66 @@ export function AddEvidenceDialog({ rumorId }: AddEvidenceDialogProps) {
         },
     });
 
-    const onSubmit = (data: FormData) => {
-        createEvidence.mutate(
-            {
-                rumorId,
-                content: data.content,
-                url: data.url || undefined,
-                isSupporting: data.type === "supporting",
-            },
-            {
-                onSuccess: () => {
-                    setOpen(false);
-                    form.reset();
-                },
-            },
-        );
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            toast({ title: "Invalid file", description: "Please select an image.", variant: "destructive" });
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast({ title: "File too large", description: "Image must be under 5MB.", variant: "destructive" });
+            return;
+        }
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => setImagePreview(reader.result as string);
+        reader.readAsDataURL(file);
     };
 
+    const removeImage = () => {
+        setImageFile(null);
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const onSubmit = async (data: FormData) => {
+        try {
+            let imageUrl: string | undefined;
+            if (imageFile && isCloudinaryConfigured()) {
+                setIsUploading(true);
+                try {
+                    imageUrl = await uploadImage(imageFile);
+                } catch {
+                    toast({ title: "Image upload failed", description: "Submitting without image.", variant: "destructive" });
+                }
+                setIsUploading(false);
+            }
+            createEvidence.mutate(
+                {
+                    rumorId,
+                    content: data.content,
+                    url: data.url || undefined,
+                    isSupporting: data.type === "supporting",
+                    imageUrl,
+                } as any,
+                {
+                    onSuccess: () => {
+                        setOpen(false);
+                        form.reset();
+                        removeImage();
+                    },
+                },
+            );
+        } catch {
+            setIsUploading(false);
+        }
+    };
+
+    const isPending = createEvidence.isPending || isUploading;
+
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) removeImage(); }}>
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                     <PlusCircle className="h-4 w-4" />
@@ -176,15 +224,52 @@ export function AddEvidenceDialog({ rumorId }: AddEvidenceDialogProps) {
                             )}
                         />
 
+                        {/* Image Upload */}
+                        <div className="space-y-2">
+                            <Label>Attach Image <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                accept="image/*"
+                                onChange={handleImageSelect}
+                                className="hidden"
+                            />
+                            {imagePreview ? (
+                                <div className="relative group rounded-lg overflow-hidden border border-border/50 bg-secondary/30">
+                                    <img src={imagePreview} alt="Preview" className="w-full max-h-36 object-cover" />
+                                    <button
+                                        type="button"
+                                        onClick={removeImage}
+                                        className="absolute top-2 right-2 p-1 rounded-full bg-background/80 border border-border hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-full flex flex-col items-center justify-center gap-1.5 py-4 rounded-lg border-2 border-dashed border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all text-muted-foreground hover:text-primary"
+                                >
+                                    <ImagePlus className="h-6 w-6" />
+                                    <span className="text-xs font-medium">Click to attach an image</span>
+                                </button>
+                            )}
+                        </div>
+
                         <DialogFooter>
                             <Button
                                 type="submit"
-                                disabled={createEvidence.isPending}
+                                disabled={isPending}
                                 className="w-full"
                             >
-                                {createEvidence.isPending
-                                    ? "Submitting..."
-                                    : "Submit Evidence"}
+                                {isUploading ? (
+                                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading Image...</>
+                                ) : createEvidence.isPending ? (
+                                    "Submitting..."
+                                ) : (
+                                    "Submit Evidence"
+                                )}
                             </Button>
                         </DialogFooter>
                     </form>

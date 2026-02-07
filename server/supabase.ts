@@ -37,6 +37,7 @@ export interface Database {
           has_harmful_content: boolean | null;
           ai_confidence: 'high' | 'medium' | 'low' | null;
           ai_processed_at: string | null;
+          image_url: string | null;
           // Time-based resolution fields
           score_above_75_since: string | null;
           score_below_25_since: string | null;
@@ -59,6 +60,7 @@ export interface Database {
           has_harmful_content?: boolean | null;
           ai_confidence?: 'high' | 'medium' | 'low' | null;
           ai_processed_at?: string | null;
+          image_url?: string | null;
         };
         Update: {
           content?: string;
@@ -74,6 +76,7 @@ export interface Database {
           has_harmful_content?: boolean | null;
           ai_confidence?: 'high' | 'medium' | 'low' | null;
           ai_processed_at?: string | null;
+          image_url?: string | null;
         };
       };
       evidence: {
