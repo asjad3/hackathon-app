@@ -278,6 +278,7 @@ export interface Database {
         };
       };
     };
+  };
 }
 
 export type Rumor = Database["public"]["Tables"]["rumors"]["Row"];
