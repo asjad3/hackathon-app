@@ -46,6 +46,16 @@ export interface IStorage {
         error?: string;
     }>;
 
+    createRumorVote(data: {
+        rumorId: string;
+        userId: string;
+        voteType: "verify" | "debunk";
+        stakeAmount?: number;
+    }): Promise<{
+        success: boolean;
+        error?: string;
+    }>;
+
     // User Management
     getOrCreateUser(voteHash: string): Promise<import("./supabase").User>;
     getUserStats(voteHash: string): Promise<{
@@ -426,6 +436,93 @@ export class DatabaseStorage implements IStorage {
         }
     }
 
+    async createRumorVote(data: {
+        rumorId: string;
+        userId: string;
+        voteType: "verify" | "debunk";
+        stakeAmount?: number;
+    }): Promise<{
+        success: boolean;
+        error?: string;
+    }> {
+        try {
+            const stake = data.stakeAmount || 1;
+            const salt = process.env.VOTE_SALT || "HACKATHON_SECRET_SALT_2026";
+
+            // Generate user hash (consistent across all votes)
+            const userHash = createHash("sha256")
+                .update(`${data.userId}:${salt}`)
+                .digest("hex");
+
+            // Get or create user
+            const user = await this.getOrCreateUser(userHash);
+
+            // Check available points
+            const availablePoints = user.total_points - user.points_staked;
+            if (availablePoints < stake) {
+                return {
+                    success: false,
+                    error: `Insufficient points. You have ${availablePoints} available, but need ${stake} to stake.`,
+                };
+            }
+
+            // Check for duplicate vote
+            const { data: existing } = await supabase
+                .from("rumor_votes")
+                .select("id")
+                .eq("rumor_id", data.rumorId)
+                .eq("vote_hash", userHash)
+                .maybeSingle();
+
+            if (existing) {
+                return {
+                    success: false,
+                    error: "You have already voted on this rumor",
+                };
+            }
+
+            // Calculate vote weight: reputation × stake
+            const voteWeight = user.reputation * stake;
+
+            // Insert vote
+            const { error: voteError } = await supabase
+                .from("rumor_votes")
+                .insert({
+                    rumor_id: data.rumorId,
+                    vote_hash: userHash,
+                    vote_type: data.voteType,
+                    stake_amount: stake,
+                    voter_reputation: user.reputation,
+                    vote_weight: voteWeight,
+                });
+
+            if (voteError) throw voteError;
+
+            // Update user's staked points
+            await supabase
+                .from("users")
+                .update({
+                    points_staked: user.points_staked + stake,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("vote_hash", userHash);
+
+            // Bot detection
+            await this.checkBotBehavior(userHash);
+
+            return { success: true };
+        } catch (err) {
+            console.error("Rumor vote creation error:", err);
+            return {
+                success: false,
+                error:
+                    err instanceof Error
+                        ? err.message
+                        : "Failed to create rumor vote",
+            };
+        }
+    }
+
     private async checkBotBehavior(voteHash: string): Promise<void> {
         // Get or create user fingerprint
         const { data: fingerprint } = await supabase
@@ -445,9 +542,9 @@ export class DatabaseStorage implements IStorage {
             return;
         }
 
-        // Check timing pattern - get recent votes
+        // Check timing pattern - get recent votes via vote_outcomes (which uses the consistent user hash)
         const { data: recentVotes } = await supabase
-            .from("evidence_votes")
+            .from("vote_outcomes")
             .select("created_at")
             .eq("vote_hash", voteHash)
             .order("created_at", { ascending: false })
@@ -514,21 +611,36 @@ export class DatabaseStorage implements IStorage {
             return { newScore: 0.5, newStatus: "Active" };
         }
 
-        // Calculate Bayesian score with log scaling
+        // Calculate Bayesian score using VOTE WEIGHTS (reputation × stake × quality)
         let alpha = 1.0; // Prior for supporting
         let beta = 1.0; // Prior for disputing
 
         for (const ev of evidenceList) {
-            const helpfulCount = ev.helpful_count || 0;
-            const misleadingCount = ev.misleading_count || 0;
-            const netVotes = helpfulCount - misleadingCount;
+            // Fetch individual votes with their weights for this evidence
+            const { data: votes } = await supabase
+                .from("evidence_votes")
+                .select("vote_type, vote_weight")
+                .eq("evidence_id", ev.id);
 
-            // Only process evidence with positive net votes (community validated)
-            // Evidence with more misleading votes is ignored (not trusted)
-            if (netVotes > 0) {
-                // Apply log scaling: weight = 1 + ln(netVotes)
-                // This caps mob influence - 100 votes is only ~2.4x more powerful than 10 votes
-                const weight = 1 + Math.log(Math.max(1, netVotes));
+            if (!votes || votes.length === 0) continue;
+
+            // Sum weighted helpful and misleading votes
+            let weightedHelpful = 0;
+            let weightedMisleading = 0;
+            for (const v of votes) {
+                if (v.vote_type === "helpful") {
+                    weightedHelpful += v.vote_weight || 1;
+                } else {
+                    weightedMisleading += v.vote_weight || 1;
+                }
+            }
+
+            const netWeight = weightedHelpful - weightedMisleading;
+
+            // Only count evidence that the community trusts (positive net weight)
+            if (netWeight > 0) {
+                // Apply log scaling to cap mob influence
+                const weight = 1 + Math.log(Math.max(1, netWeight));
 
                 if (ev.evidence_type === "support") {
                     alpha += weight;
@@ -536,17 +648,14 @@ export class DatabaseStorage implements IStorage {
                     beta += weight;
                 }
             }
-            // Note: Evidence with netVotes <= 0 is ignored (community doesn't trust it)
         }
 
         // Calculate new score (Beta distribution mean)
         const newScore = alpha / (alpha + beta);
 
-        // Determine status based on thresholds (but don't auto-resolve yet)
+        // Status stays Active — only the resolution cron sets final Verified/Debunked/Inconclusive
+        // This prevents premature resolution and ensures the 48h threshold is enforced
         let newStatus: RumorStatus = "Active";
-        if (newScore >= 0.8) newStatus = "Verified";
-        else if (newScore <= 0.2) newStatus = "Debunked";
-        else if (newScore >= 0.4 && newScore <= 0.6) newStatus = "Inconclusive";
 
         // Track time-based thresholds for resolution
         const now = new Date().toISOString();
@@ -656,9 +765,9 @@ export class DatabaseStorage implements IStorage {
         evidenceId: string,
         voteType: string,
     ): Promise<void> {
-        // Get all other votes on this evidence
+        // Get all other votes on this evidence via vote_outcomes (which stores consistent user hashes)
         const { data: otherVotes } = await supabase
-            .from("evidence_votes")
+            .from("vote_outcomes")
             .select("vote_hash, vote_type")
             .eq("evidence_id", evidenceId)
             .neq("vote_hash", voteHash);
@@ -826,20 +935,23 @@ export class DatabaseStorage implements IStorage {
             }
 
             // 4. Calculate points gained/lost
+            // NOTE: When user staked, we only incremented points_staked (a lock).
+            // total_points was NOT reduced. So on resolution:
+            //   - correct: unlock stake (reduce points_staked) + add bonus to total_points
+            //   - incorrect: deduct stake from total_points + unlock (reduce points_staked)
+            //   - inconclusive: just unlock stake (reduce points_staked), no change to total_points
             let pointsGained = 0;
             let pointsLost = 0;
 
             if (wasCorrect === true) {
-                // Correct vote: regain stake + 10% bonus
-                pointsGained =
-                    outcome.stake_amount +
-                    Math.floor(outcome.stake_amount * 0.1);
+                // Correct vote: bonus = max(1, floor(stake * 0.2)) — always at least 1 point
+                pointsGained = Math.max(1, Math.floor(outcome.stake_amount * 0.2));
             } else if (wasCorrect === false) {
-                // Incorrect vote: lose stake
+                // Incorrect vote: lose the staked amount from total_points
                 pointsLost = outcome.stake_amount;
             } else {
-                // Inconclusive: regain stake, no bonus or penalty
-                pointsGained = outcome.stake_amount;
+                // Inconclusive: no bonus, no penalty — stake just gets unlocked
+                pointsGained = 0;
             }
 
             // 5. Update vote outcome
@@ -890,7 +1002,84 @@ export class DatabaseStorage implements IStorage {
             }
         }
 
-        // 7. Log resolution to audit trail
+        // 7. Resolve direct rumor votes
+        const { data: rumorVotes } = await supabase
+            .from("rumor_votes")
+            .select("*")
+            .eq("rumor_id", rumorId)
+            .is("was_correct", null);
+
+        if (rumorVotes && rumorVotes.length > 0) {
+            for (const vote of rumorVotes) {
+                // Determine if vote was correct
+                let wasCorrect: boolean | null = false;
+
+                if (finalStatus === "Verified") {
+                    wasCorrect = vote.vote_type === "verify";
+                } else if (finalStatus === "Debunked") {
+                    wasCorrect = vote.vote_type === "debunk";
+                } else {
+                    // Inconclusive
+                    wasCorrect = null;
+                }
+
+                // Calculate points
+                let pointsGained = 0;
+                let pointsLost = 0;
+
+                if (wasCorrect === true) {
+                    pointsGained = Math.max(1, Math.floor(vote.stake_amount * 0.2));
+                } else if (wasCorrect === false) {
+                    pointsLost = vote.stake_amount;
+                }
+
+                // Update rumor vote
+                await supabase
+                    .from("rumor_votes")
+                    .update({
+                        was_correct: wasCorrect,
+                        points_gained: pointsGained,
+                        points_lost: pointsLost,
+                        resolved_at: new Date().toISOString(),
+                    })
+                    .eq("id", vote.id);
+
+                // Update user stats
+                const { data: user } = await supabase
+                    .from("users")
+                    .select("*")
+                    .eq("vote_hash", vote.vote_hash)
+                    .single();
+
+                if (user) {
+                    const newTotalVotes = user.total_votes + 1;
+                    const newCorrectVotes =
+                        user.correct_votes + (wasCorrect === true ? 1 : 0);
+                    const newReputation =
+                        (newCorrectVotes + 1) / (newTotalVotes + 2);
+                    const newTotalPoints =
+                        user.total_points + pointsGained - pointsLost;
+                    const newPointsStaked =
+                        user.points_staked - vote.stake_amount;
+
+                    await supabase
+                        .from("users")
+                        .update({
+                            total_votes: newTotalVotes,
+                            correct_votes: newCorrectVotes,
+                            reputation: newReputation,
+                            total_points: newTotalPoints,
+                            points_staked: newPointsStaked,
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq("vote_hash", vote.vote_hash);
+
+                    votersUpdated++;
+                }
+            }
+        }
+
+        // 8. Log resolution to audit trail
         await supabase.from("audit_log").insert({
             rumor_id: rumorId,
             event_type: "resolution",

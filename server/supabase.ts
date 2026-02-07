@@ -277,6 +277,36 @@ export interface Database {
           last_updated?: string;
         };
       };
+      rumor_votes: {
+        Row: {
+          id: string;
+          rumor_id: string;
+          vote_hash: string;
+          vote_type: 'verify' | 'debunk';
+          stake_amount: number;
+          voter_reputation: number | null;
+          vote_weight: number;
+          was_correct: boolean | null;
+          points_gained: number;
+          points_lost: number;
+          created_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          rumor_id: string;
+          vote_hash: string;
+          vote_type: 'verify' | 'debunk';
+          stake_amount: number;
+          voter_reputation?: number | null;
+          vote_weight?: number;
+          was_correct?: boolean | null;
+          points_gained?: number;
+          points_lost?: number;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+      };
     };
   };
 }
@@ -292,3 +322,4 @@ export type User = Database["public"]["Tables"]["users"]["Row"];
 export type VoteOutcome = Database["public"]["Tables"]["vote_outcomes"]["Row"];
 export type VoteAgreement =
     Database["public"]["Tables"]["vote_agreements"]["Row"];
+export type RumorVote = Database["public"]["Tables"]["rumor_votes"]["Row"];

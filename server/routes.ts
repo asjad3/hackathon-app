@@ -141,6 +141,13 @@ export async function registerRoutes(
             let contentType: "link" | "image" | "text" = "text";
             if (imageUrl) contentType = "image";
             else if (input.url) contentType = "link";
+
+            // Generate creator hash so users can't vote on their own evidence
+            const salt = process.env.VOTE_SALT || "HACKATHON_SECRET_SALT_2026";
+            const creatorHash = createHash("sha256")
+                .update(`${req.user!.id}:${salt}:creator`)
+                .digest("hex");
+
             const evidence = await storage.createEvidence({
                 rumorId: req.params.id as string,
                 evidenceType: input.isSupporting ? "support" : "dispute",
@@ -172,6 +179,39 @@ export async function registerRoutes(
                 evidenceId: req.params.id as string,
                 userId,
                 isHelpful,
+                stakeAmount,
+            });
+
+            if (!result.success) {
+                return res
+                    .status(400)
+                    .json({ message: result.error || "Vote failed" });
+            }
+
+            res.json(result);
+        } catch (err) {
+            if (err instanceof z.ZodError) {
+                return res.status(400).json({ message: err.errors[0].message });
+            }
+            res.status(500).json({ message: "Internal server error" });
+        }
+    });
+
+    // Rumor voting endpoint
+    app.post(api.rumor.vote.path, async (req, res) => {
+        if (!req.isAuthenticated())
+            return res.status(401).json({ message: "Unauthorized" });
+
+        try {
+            const { voteType, stakeAmount } = api.rumor.vote.input.parse(
+                req.body,
+            );
+            const userId = req.user!.id;
+
+            const result = await storage.createRumorVote({
+                rumorId: req.params.id as string,
+                userId,
+                voteType,
                 stakeAmount,
             });
 
