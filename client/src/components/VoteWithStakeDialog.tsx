@@ -55,8 +55,9 @@ export function VoteWithStakeDialog({
         : 100;
     const reputation = stats?.reputation || 0.5;
 
-    // Calculate vote weight preview
-    const voteWeight = reputation * 1.5 * stakeAmount[0]; // Simplified formula for preview
+    // Vote weight = reputation × (1 + evidenceQuality) × stake
+    // Use 0.5 as assumed evidence quality (we don't know the real value client-side)
+    const voteWeight = reputation * (1 + 0.5) * stakeAmount[0];
 
     const handleVote = () => {
         onVote(evidenceId, isHelpful, stakeAmount[0]);
@@ -128,7 +129,7 @@ export function VoteWithStakeDialog({
                             value={stakeAmount}
                             onValueChange={setStakeAmount}
                             min={1}
-                            max={Math.min(10, availablePoints)}
+                            max={Math.max(1, Math.min(10, availablePoints))}
                             step={1}
                             className="w-full"
                             disabled={availablePoints < 1}

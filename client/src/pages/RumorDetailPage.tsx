@@ -6,6 +6,7 @@ import { CountdownTimer } from "@/components/CountdownTimer";
 import { AddEvidenceDialog } from "@/components/AddEvidenceDialog";
 import { UserStatsCard } from "@/components/UserStatsCard";
 import { VoteWithStakeDialog } from "@/components/VoteWithStakeDialog";
+import { VoteOnRumorDialog } from "@/components/VoteOnRumorDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -142,17 +143,25 @@ export default function RumorDetailPage() {
                         </div>
 
                         <Card className="bg-card/40 border-border/60">
-                            <CardContent className="pt-6">
+                            <CardContent className="pt-6 space-y-4">
                                 <TrustScore
                                     score={(rumor as any).trust_score}
                                     size="lg"
                                     className="mb-4"
                                 />
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-sm text-muted-foreground mb-4">
                                     This score is calculated using a Bayesian
                                     algorithm based on the quality and quantity
                                     of supporting vs. disputing evidence.
                                 </p>
+                                
+                                {/* Vote on Rumor Buttons */}
+                                {rumor.status === "Active" && (
+                                    <div className="flex gap-3 pt-2">
+                                        <VoteOnRumorDialog rumorId={id} voteType="verify" />
+                                        <VoteOnRumorDialog rumorId={id} voteType="debunk" />
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>

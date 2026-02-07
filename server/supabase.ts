@@ -287,6 +287,7 @@ export interface Database {
             };
         };
     };
+  };
 }
 
 export type Rumor = Database["public"]["Tables"]["rumors"]["Row"];
@@ -300,3 +301,4 @@ export type User = Database["public"]["Tables"]["users"]["Row"];
 export type VoteOutcome = Database["public"]["Tables"]["vote_outcomes"]["Row"];
 export type VoteAgreement =
     Database["public"]["Tables"]["vote_agreements"]["Row"];
+export type RumorVote = Database["public"]["Tables"]["rumor_votes"]["Row"];

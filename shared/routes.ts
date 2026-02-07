@@ -76,6 +76,24 @@ export const api = {
       },
     },
   },
+  rumor: {
+    vote: {
+      method: 'POST' as const,
+      path: '/api/rumors/:id/vote',
+      input: z.object({
+        voteType: z.enum(['verify', 'debunk']),
+        stakeAmount: z.number().int().min(1).max(10).optional().default(1),
+      }),
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+        }),
+        400: errorSchemas.validation,
+        401: errorSchemas.unauthorized,
+        404: errorSchemas.notFound,
+      },
+    },
+  },
   user: {
     stats: {
       method: 'GET' as const,
