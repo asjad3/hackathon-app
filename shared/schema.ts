@@ -34,6 +34,20 @@ export const rumors = pgTable("rumors", {
     summary: text("summary"),
     contentWarning: boolean("content_warning").default(false),
     imageUrl: text("image_url"),
+    hasDependencies: boolean("has_dependencies").default(false),
+    dependencyStatus: text("dependency_status"), // 'blocked', 'affected', NULL
+});
+
+export const rumorRelationships = pgTable("rumor_relationships", {
+    id: serial("id").primaryKey(),
+    parentRumorId: integer("parent_rumor_id")
+        .references(() => rumors.id, { onDelete: "cascade" })
+        .notNull(),
+    childRumorId: integer("child_rumor_id")
+        .references(() => rumors.id, { onDelete: "cascade" })
+        .notNull(),
+    relationshipType: text("relationship_type").default("depends_on").notNull(), // depends_on, related_to, contradicts
+    createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const evidence = pgTable("evidence", {
@@ -72,7 +86,29 @@ export const auditLog = pgTable("audit_log", {
 export const rumorsRelations = relations(rumors, ({ many }) => ({
     evidence: many(evidence),
     auditLogs: many(auditLog),
+    parentRelationships: many(rumorRelationships, {
+        relationName: "parent",
+    }),
+    childRelationships: many(rumorRelationships, {
+        relationName: "child",
+    }),
 }));
+
+export const rumorRelationshipsRelations = relations(
+    rumorRelationships,
+    ({ one }) => ({
+        parentRumor: one(rumors, {
+            fields: [rumorRelationships.parentRumorId],
+            references: [rumors.id],
+            relationName: "parent",
+        }),
+        childRumor: one(rumors, {
+            fields: [rumorRelationships.childRumorId],
+            references: [rumors.id],
+            relationName: "child",
+        }),
+    }),
+);
 
 export const evidenceRelations = relations(evidence, ({ one, many }) => ({
     rumor: one(rumors, {
@@ -133,5 +169,7 @@ export type InsertEvidence = z.infer<typeof insertEvidenceSchema>;
 export type EvidenceVote = typeof evidenceVotes.$inferSelect;
 
 export type AuditLogEntry = typeof auditLog.$inferSelect;
+
+export type RumorRelationship = typeof rumorRelationships.$inferSelect;
 
 export type RumorStatus = "active" | "verified" | "debunked" | "inconclusive";

@@ -7,6 +7,7 @@ import { AddEvidenceDialog } from "@/components/AddEvidenceDialog";
 import { UserStatsCard } from "@/components/UserStatsCard";
 import { VoteWithStakeDialog } from "@/components/VoteWithStakeDialog";
 import { VoteOnRumorDialog } from "@/components/VoteOnRumorDialog";
+import { RumorGraphViewer } from "@/components/RumorGraphViewer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -228,6 +229,9 @@ export default function RumorDetailPage() {
                             <TabsTrigger value="evidence">
                                 Evidence Log
                             </TabsTrigger>
+                            <TabsTrigger value="dependencies">
+                                Dependencies
+                            </TabsTrigger>
                             <TabsTrigger value="meta">Metadata</TabsTrigger>
                         </TabsList>
                         <AddEvidenceDialog rumorId={id} />
@@ -299,6 +303,10 @@ export default function RumorDetailPage() {
                                 )}
                             </div>
                         </div>
+                    </TabsContent>
+
+                    <TabsContent value="dependencies">
+                        <RumorGraphViewer rumorId={id} />
                     </TabsContent>
 
                     <TabsContent value="meta">

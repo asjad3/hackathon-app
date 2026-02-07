@@ -79,6 +79,27 @@ export interface IStorage {
             votersUpdated: number;
         }>;
     }>;
+
+    // Rumor Relationships (DAG)
+    createRumorRelationship(data: {
+        parentRumorId: string;
+        childRumorId: string;
+        relationshipType: string;
+    }): Promise<{
+        success: boolean;
+        relationship?: any;
+        error?: string;
+    }>;
+    getRumorRelationships(rumorId: string): Promise<any[]>;
+    getRumorGraph(rumorId: string): Promise<{
+        nodes: Array<{
+            id: string;
+            content: string;
+            status: string;
+            trustScore: number;
+        }>;
+        edges: Array<{ source: string; target: string; type: string }>;
+    }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -186,7 +207,10 @@ export class DatabaseStorage implements IStorage {
         };
     }
 
-    async createRumor(content: string, imageUrl?: string | null): Promise<Rumor> {
+    async createRumor(
+        content: string,
+        imageUrl?: string | null,
+    ): Promise<Rumor> {
         const { data, error } = await supabase
             .from("rumors")
             .insert({ content, image_url: imageUrl || null })
@@ -945,7 +969,10 @@ export class DatabaseStorage implements IStorage {
 
             if (wasCorrect === true) {
                 // Correct vote: bonus = max(1, floor(stake * 0.2)) — always at least 1 point
-                pointsGained = Math.max(1, Math.floor(outcome.stake_amount * 0.2));
+                pointsGained = Math.max(
+                    1,
+                    Math.floor(outcome.stake_amount * 0.2),
+                );
             } else if (wasCorrect === false) {
                 // Incorrect vote: lose the staked amount from total_points
                 pointsLost = outcome.stake_amount;
@@ -1028,7 +1055,10 @@ export class DatabaseStorage implements IStorage {
                 let pointsLost = 0;
 
                 if (wasCorrect === true) {
-                    pointsGained = Math.max(1, Math.floor(vote.stake_amount * 0.2));
+                    pointsGained = Math.max(
+                        1,
+                        Math.floor(vote.stake_amount * 0.2),
+                    );
                 } else if (wasCorrect === false) {
                     pointsLost = vote.stake_amount;
                 }
@@ -1172,6 +1202,192 @@ export class DatabaseStorage implements IStorage {
         }
 
         return { resolved: resolvedRumors.length, rumors: resolvedRumors };
+    }
+
+    // Rumor Relationships (DAG) Methods
+    async createRumorRelationship(data: {
+        parentRumorId: string;
+        childRumorId: string;
+        relationshipType: string;
+    }): Promise<{
+        success: boolean;
+        relationship?: any;
+        error?: string;
+    }> {
+        try {
+            // Check if both rumors exist
+            const { data: parent } = await supabase
+                .from("rumors")
+                .select("id")
+                .eq("id", data.parentRumorId)
+                .single();
+
+            const { data: child } = await supabase
+                .from("rumors")
+                .select("id")
+                .eq("id", data.childRumorId)
+                .single();
+
+            if (!parent || !child) {
+                return {
+                    success: false,
+                    error: "One or both rumors not found",
+                };
+            }
+
+            // Check for self-reference
+            if (data.parentRumorId === data.childRumorId) {
+                return {
+                    success: false,
+                    error: "Cannot create relationship to itself",
+                };
+            }
+
+            // Check for circular dependency using the stored function
+            const { data: hasCircle } = await supabase.rpc(
+                "check_circular_dependency",
+                {
+                    p_parent_id: data.parentRumorId,
+                    p_child_id: data.childRumorId,
+                },
+            );
+
+            if (hasCircle) {
+                return {
+                    success: false,
+                    error: "This relationship would create a circular dependency",
+                };
+            }
+
+            // Create the relationship
+            const { data: relationship, error } = await supabase
+                .from("rumor_relationships")
+                .insert({
+                    parent_rumor_id: data.parentRumorId,
+                    child_rumor_id: data.childRumorId,
+                    relationship_type: data.relationshipType,
+                })
+                .select()
+                .single();
+
+            if (error) {
+                // Check if it's a unique constraint violation
+                if (error.code === "23505") {
+                    return {
+                        success: false,
+                        error: "This relationship already exists",
+                    };
+                }
+                throw error;
+            }
+
+            return {
+                success: true,
+                relationship,
+            };
+        } catch (error) {
+            console.error("Error creating rumor relationship:", error);
+            return {
+                success: false,
+                error: "Failed to create relationship",
+            };
+        }
+    }
+
+    async getRumorRelationships(rumorId: string): Promise<any[]> {
+        // Get relationships where this rumor is either parent or child
+        const { data: relationships, error } = await supabase
+            .from("rumor_relationships")
+            .select(
+                `
+                id,
+                parent_rumor_id,
+                child_rumor_id,
+                relationship_type,
+                created_at,
+                parent:parent_rumor_id(id, content, status),
+                child:child_rumor_id(id, content, status)
+            `,
+            )
+            .or(`parent_rumor_id.eq.${rumorId},child_rumor_id.eq.${rumorId}`);
+
+        if (error) {
+            console.error("Error fetching rumor relationships:", error);
+            return [];
+        }
+
+        return relationships || [];
+    }
+
+    async getRumorGraph(rumorId: string): Promise<{
+        nodes: Array<{
+            id: string;
+            content: string;
+            status: string;
+            trustScore: number;
+        }>;
+        edges: Array<{ source: string; target: string; type: string }>;
+    }> {
+        const nodes: Map<string, any> = new Map();
+        const edges: Array<{ source: string; target: string; type: string }> =
+            [];
+        const visited = new Set<string>();
+
+        // Recursive function to build the graph
+        const buildGraph = async (currentId: string, depth: number = 0) => {
+            if (visited.has(currentId) || depth > 5) return; // Prevent infinite loops, limit depth
+            visited.add(currentId);
+
+            // Get the current rumor
+            const { data: rumor } = await supabase
+                .from("rumors")
+                .select("id, content, status, trust_score")
+                .eq("id", currentId)
+                .single();
+
+            if (rumor) {
+                nodes.set(rumor.id, {
+                    id: rumor.id,
+                    content: rumor.content.substring(0, 100), // Truncate for graph display
+                    status: rumor.status,
+                    trustScore: rumor.trust_score,
+                });
+
+                // Get all relationships (both as parent and child)
+                const { data: relationships } = await supabase
+                    .from("rumor_relationships")
+                    .select(
+                        "parent_rumor_id, child_rumor_id, relationship_type",
+                    )
+                    .or(
+                        `parent_rumor_id.eq.${currentId},child_rumor_id.eq.${currentId}`,
+                    );
+
+                if (relationships) {
+                    for (const rel of relationships) {
+                        edges.push({
+                            source: rel.parent_rumor_id,
+                            target: rel.child_rumor_id,
+                            type: rel.relationship_type,
+                        });
+
+                        // Recursively explore connected rumors
+                        if (rel.parent_rumor_id === currentId) {
+                            await buildGraph(rel.child_rumor_id, depth + 1);
+                        } else {
+                            await buildGraph(rel.parent_rumor_id, depth + 1);
+                        }
+                    }
+                }
+            }
+        };
+
+        await buildGraph(rumorId);
+
+        return {
+            nodes: Array.from(nodes.values()),
+            edges,
+        };
     }
 }
 

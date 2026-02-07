@@ -260,6 +260,59 @@ export async function registerRoutes(
         }
     });
 
+    // Rumor Relationships - List relationships for a rumor
+    app.get(api.relationships.list.path, async (req, res) => {
+        try {
+            const rumorId = req.params.id as string;
+            const relationships = await storage.getRumorRelationships(rumorId);
+            res.json(relationships);
+        } catch (err) {
+            res.status(500).json({ message: "Internal server error" });
+        }
+    });
+
+    // Rumor Relationships - Create a new relationship
+    app.post(api.relationships.create.path, async (req, res) => {
+        if (!req.isAuthenticated())
+            return res.status(401).json({ message: "Unauthorized" });
+
+        try {
+            const { targetRumorId, relationshipType } =
+                api.relationships.create.input.parse(req.body);
+            const sourceRumorId = req.params.id as string;
+
+            const result = await storage.createRumorRelationship({
+                parentRumorId: sourceRumorId,
+                childRumorId: targetRumorId,
+                relationshipType: relationshipType || "depends_on",
+            });
+
+            if (!result.success) {
+                return res.status(400).json({
+                    message: result.error || "Failed to create relationship",
+                });
+            }
+
+            res.status(201).json(result);
+        } catch (err) {
+            if (err instanceof z.ZodError) {
+                return res.status(400).json({ message: err.errors[0].message });
+            }
+            res.status(500).json({ message: "Internal server error" });
+        }
+    });
+
+    // Rumor Relationships - Get dependency graph
+    app.get(api.relationships.graph.path, async (req, res) => {
+        try {
+            const rumorId = req.params.id as string;
+            const graph = await storage.getRumorGraph(rumorId);
+            res.json(graph);
+        } catch (err) {
+            res.status(500).json({ message: "Internal server error" });
+        }
+    });
+
     // User Stats Endpoint
     app.get(api.user.stats.path, async (req, res) => {
         if (!req.isAuthenticated())
