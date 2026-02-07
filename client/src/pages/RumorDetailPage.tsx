@@ -93,22 +93,22 @@ export default function RumorDetailPage() {
                                 </span>
                                 {((rumor as any).score_above_75_since ||
                                     (rumor as any).score_below_25_since) && (
-                                    <>
-                                        <span>•</span>
-                                        <CountdownTimer
-                                            targetDate={
-                                                (rumor as any)
-                                                    .score_above_75_since ||
-                                                (rumor as any)
-                                                    .score_below_25_since
-                                            }
-                                            type="resolution"
-                                            status={(rumor as any).status}
-                                            onExpire={() => refetch()}
-                                        />
-                                        <span>•</span>
-                                    </>
-                                )}
+                                        <>
+                                            <span>•</span>
+                                            <CountdownTimer
+                                                targetDate={
+                                                    (rumor as any)
+                                                        .score_above_75_since ||
+                                                    (rumor as any)
+                                                        .score_below_25_since
+                                                }
+                                                type="resolution"
+                                                status={(rumor as any).status}
+                                                onExpire={() => refetch()}
+                                            />
+                                            <span>•</span>
+                                        </>
+                                    )}
                                 {(rumor as any).expiry_date && (
                                     <>
                                         <span>•</span>
@@ -126,17 +126,36 @@ export default function RumorDetailPage() {
                                 <span>
                                     {(rumor as any).created_at
                                         ? format(
-                                              new Date(
-                                                  (rumor as any).created_at,
-                                              ),
-                                              "PPP p",
-                                          )
+                                            new Date(
+                                                (rumor as any).created_at,
+                                            ),
+                                            "PPP p",
+                                        )
                                         : "Unknown date"}
                                 </span>
                             </div>
                             <h1 className="text-2xl md:text-3xl font-bold leading-tight">
                                 {rumor.content}
                             </h1>
+
+                            {/* AI-Generated Summary */}
+                            {(rumor as any).ai_summary && (
+                                <Card className="bg-primary/5 border-primary/20">
+                                    <CardContent className="pt-4 pb-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                <Badge variant="outline" className="bg-primary/10 border-primary/30 text-primary font-mono text-[10px]">
+                                                    AI SUMMARY
+                                                </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground  mt-1 leading-relaxed">
+                                                {(rumor as any).ai_summary}
+                                            </p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             {(rumor as any).image_url && (
                                 <div className="rounded-lg overflow-hidden border border-border/50">
                                     <img

@@ -207,15 +207,6 @@ export const api = {
             },
         },
     },
-                            target: z.number(),
-                            type: z.string(),
-                        }),
-                    ),
-                }),
-                404: errorSchemas.notFound,
-            },
-        },
-    },
     user: {
         stats: {
             method: "GET" as const,

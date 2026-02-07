@@ -102,15 +102,14 @@ export default function FeedPage() {
                                     <Card className="border-border/60 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer bg-card/50 backdrop-blur-sm overflow-hidden relative">
                                         {/* Status accent line on left */}
                                         <div
-                                            className={`absolute left-0 top-0 bottom-0 w-1 ${
-                                                (rumor as any).trust_score >=
-                                                0.8
+                                            className={`absolute left-0 top-0 bottom-0 w-1 ${(rumor as any).trust_score >=
+                                                    0.8
                                                     ? "bg-[hsl(var(--status-verified))]"
                                                     : (rumor as any)
-                                                            .trust_score <= 0.2
-                                                      ? "bg-destructive"
-                                                      : "bg-yellow-500"
-                                            }`}
+                                                        .trust_score <= 0.2
+                                                        ? "bg-destructive"
+                                                        : "bg-yellow-500"
+                                                }`}
                                         />
 
                                         <CardHeader className="pb-2 pl-6">
@@ -134,48 +133,48 @@ export default function FeedPage() {
                                                                 .score_above_75_since ||
                                                                 (rumor as any)
                                                                     .score_below_25_since) && (
-                                                                <CountdownTimer
-                                                                    targetDate={
-                                                                        (
-                                                                            rumor as any
-                                                                        )
-                                                                            .score_above_75_since ||
-                                                                        (
-                                                                            rumor as any
-                                                                        )
-                                                                            .score_below_25_since
-                                                                    }
-                                                                    type="resolution"
-                                                                    status={
-                                                                        (
-                                                                            rumor as any
-                                                                        ).status
-                                                                    }
-                                                                    onExpire={() =>
-                                                                        refetch()
-                                                                    }
-                                                                />
-                                                            )}
+                                                                    <CountdownTimer
+                                                                        targetDate={
+                                                                            (
+                                                                                rumor as any
+                                                                            )
+                                                                                .score_above_75_since ||
+                                                                            (
+                                                                                rumor as any
+                                                                            )
+                                                                                .score_below_25_since
+                                                                        }
+                                                                        type="resolution"
+                                                                        status={
+                                                                            (
+                                                                                rumor as any
+                                                                            ).status
+                                                                        }
+                                                                        onExpire={() =>
+                                                                            refetch()
+                                                                        }
+                                                                    />
+                                                                )}
                                                             {(rumor as any)
                                                                 .expiry_date && (
-                                                                <CountdownTimer
-                                                                    targetDate={
-                                                                        (
-                                                                            rumor as any
-                                                                        )
-                                                                            .expiry_date
-                                                                    }
-                                                                    type="expiry"
-                                                                    status={
-                                                                        (
-                                                                            rumor as any
-                                                                        ).status
-                                                                    }
-                                                                    onExpire={() =>
-                                                                        refetch()
-                                                                    }
-                                                                />
-                                                            )}
+                                                                    <CountdownTimer
+                                                                        targetDate={
+                                                                            (
+                                                                                rumor as any
+                                                                            )
+                                                                                .expiry_date
+                                                                        }
+                                                                        type="expiry"
+                                                                        status={
+                                                                            (
+                                                                                rumor as any
+                                                                            ).status
+                                                                        }
+                                                                        onExpire={() =>
+                                                                            refetch()
+                                                                        }
+                                                                    />
+                                                                )}
                                                         </div>
                                                         <span className="text-xs text-muted-foreground font-mono">
                                                             {formatDistanceToNow(
@@ -192,18 +191,16 @@ export default function FeedPage() {
                                                         </span>
                                                     </div>
                                                     <CardTitle className="text-lg font-medium leading-relaxed line-clamp-2 group-hover:text-primary transition-colors">
-                                                        {(rumor as any)
-                                                            .summary ??
-                                                            rumor.content}
+                                                        {rumor.content}
                                                     </CardTitle>
                                                     {(rumor as any)
                                                         .content_warning && (
-                                                        <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500 text-xs font-medium">
-                                                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                                                            Sensitive content —
-                                                            view with care
-                                                        </div>
-                                                    )}
+                                                            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500 text-xs font-medium">
+                                                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                                                Sensitive content —
+                                                                view with care
+                                                            </div>
+                                                        )}
                                                 </div>
                                             </div>
                                         </CardHeader>

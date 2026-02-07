@@ -211,66 +211,62 @@ export class DatabaseStorage implements IStorage {
         content: string,
         imageUrl?: string | null,
     ): Promise<Rumor> {
+        console.log("[Storage] Creating rumor with AI analysis...");
+
+        // 🤖 Run AI analysis synchronously BEFORE saving
+        const { analyzeRumor } = await import("./ai/analyzer");
+        const createdAt = new Date().toISOString();
+
+        let aiAnalysis;
+        try {
+            aiAnalysis = await analyzeRumor(content, createdAt);
+            console.log("[Storage] ✅ AI analysis completed:", {
+                hasSummary: !!aiAnalysis.summary,
+                isTimeBound: aiAnalysis.isTimeBound,
+                hasHarmful: aiAnalysis.hasHarmfulContent,
+            });
+        } catch (error) {
+            console.error(
+                "[Storage] ⚠️ AI analysis failed, using defaults:",
+                error,
+            );
+            // If AI fails, continue with empty analysis
+            aiAnalysis = {
+                summary: null,
+                isTimeBound: false,
+                expiryDate: null,
+                censoredContent: null,
+                hasHarmfulContent: false,
+                analysisMetadata: {
+                    processingTime: 0,
+                    model: "fallback",
+                    confidence: "low" as const,
+                },
+            };
+        }
+
+        // 💾 Save rumor with AI analysis results
         const { data, error } = await supabase
             .from("rumors")
-            .insert({ content, image_url: imageUrl || null })
+            .insert({
+                content,
+                image_url: imageUrl || null,
+                // AI analysis fields
+                ai_summary: aiAnalysis.summary,
+                summary: aiAnalysis.summary, // Backward compatibility
+                is_time_bound: aiAnalysis.isTimeBound,
+                expiry_date: aiAnalysis.expiryDate,
+                censored_content: aiAnalysis.censoredContent,
+                has_harmful_content: aiAnalysis.hasHarmfulContent,
+                ai_confidence: aiAnalysis.analysisMetadata.confidence,
+                ai_processed_at: new Date().toISOString(),
+            })
             .select()
             .single();
 
         if (error) throw error;
 
-        // 🚀 Trigger Inngest workflow for AI background processing (non-blocking)
-        // This replaces the old synchronous AI processing with async workflow
-        try {
-            const { inngest } = await import("./inngest/client");
-            await inngest.send({
-                name: "rumor/created",
-                data: {
-                    rumorId: data.id,
-                    content: data.content,
-                    createdAt: data.created_at,
-                },
-            });
-            console.log(
-                `[Storage] ✅ Inngest event triggered for rumor ${data.id}`,
-            );
-        } catch (inngestError) {
-            // Don't fail rumor creation if Inngest fails
-            console.error(
-                "[Storage] ⚠️ Failed to trigger Inngest event:",
-                inngestError,
-            );
-
-            // Fallback: Try old synchronous method if Inngest is unavailable
-            try {
-                const { summarizeAndCheckSafety } = await import("./ai/gemini");
-                const { summary, contentWarning } =
-                    await summarizeAndCheckSafety(content);
-                if (summary !== null || contentWarning) {
-                    await supabase
-                        .from("rumors")
-                        .update({
-                            summary: summary ?? undefined,
-                            content_warning: contentWarning,
-                            ai_summary: summary ?? undefined,
-                            has_harmful_content: contentWarning,
-                        })
-                        .eq("id", data.id);
-                    return {
-                        ...data,
-                        summary: summary ?? null,
-                        content_warning: contentWarning,
-                        ai_summary: summary ?? null,
-                        has_harmful_content: contentWarning,
-                    };
-                }
-            } catch (e) {
-                console.warn(
-                    "[createRumor] Fallback AI step also failed:",
-                    e instanceof Error ? e.message : e,
-                );
-            }
-        }
+        console.log(`[Storage] ✅ Rumor created successfully: ${data.id}`);
 
         return data;
     }

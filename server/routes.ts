@@ -54,10 +54,6 @@ export async function registerRoutes(
     // Mock Auth Setup for local development
     setupMockAuth(app);
 
-    // Inngest endpoint for background AI processing
-    const { inngestHandler } = await import("./inngest/serve");
-    app.use("/api/inngest", inngestHandler);
-
     // Apply rate limiting to all API routes
     app.use("/api", rateLimit);
 
