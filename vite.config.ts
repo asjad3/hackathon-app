@@ -10,6 +10,10 @@ export default defineConfig({
     plugins: [
         react({
             jsxRuntime: "automatic",
+            jsxImportSource: "react",
+            babel: {
+                plugins: [],
+            },
         }),
     ],
     resolve: {
@@ -23,14 +27,19 @@ export default defineConfig({
     build: {
         outDir: path.join(__dirname, "dist", "public"),
         emptyOutDir: true,
+        sourcemap: false,
+        minify: "terser",
         rollupOptions: {
             output: {
-                manualChunks: {
-                    "react-vendor": ["react", "react-dom"],
-                    "ui-vendor": [
-                        "@radix-ui/react-dialog",
-                        "@radix-ui/react-dropdown-menu",
-                    ],
+                manualChunks(id) {
+                    if (id.includes('node_modules')) {
+                        if (id.includes('react') || id.includes('react-dom')) {
+                            return 'react-vendor';
+                        }
+                        if (id.includes('@radix-ui')) {
+                            return 'radix-vendor';
+                        }
+                    }
                 },
             },
         },

@@ -51,6 +51,8 @@ async function buildApp() {
             "rollup",
             "postcss",
             "tailwindcss",
+            "bcryptjs",
+            "nodemailer",
         ],
         loader: {
             ".node": "copy",
