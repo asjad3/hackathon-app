@@ -42,10 +42,10 @@ export default function RumorDetailPage() {
         return <div className="p-20 text-center">Rumor not found</div>;
 
     const supportingEvidence = rumor.evidence.filter(
-        (e) => e.evidence_type === "support",
+        (e) => e.isSupporting === true,
     );
     const disputingEvidence = rumor.evidence.filter(
-        (e) => e.evidence_type === "dispute",
+        (e) => e.isSupporting === false,
     );
 
     const handleVote = (evidenceId: string, isHelpful: boolean, stakeAmount: number) => {
@@ -53,8 +53,8 @@ export default function RumorDetailPage() {
     };
 
     const chartData = rumor.history.map((entry) => ({
-        time: format(new Date(entry.created_at), "HH:mm"),
-        score: entry.new_score * 100,
+        time: format(new Date(entry.createdAt), "HH:mm"),
+        score: entry.newScore * 100,
     }));
 
     return (
@@ -73,7 +73,7 @@ export default function RumorDetailPage() {
                                 <span>•</span>
                                 <span>
                                     {format(
-                                        new Date(rumor.created_at),
+                                        new Date(rumor.createdAt),
                                         "PPP p",
                                     )}
                                 </span>
@@ -86,7 +86,7 @@ export default function RumorDetailPage() {
                         <Card className="bg-card/40 border-border/60">
                             <CardContent className="pt-6">
                                 <TrustScore
-                                    score={rumor.trust_score}
+                                    score={rumor.trustScore}
                                     size="lg"
                                     className="mb-4"
                                 />
@@ -228,11 +228,11 @@ export default function RumorDetailPage() {
                                 <p>Evidence Count: {rumor.evidence.length}</p>
                                 <p>
                                     Created:{" "}
-                                    {new Date(rumor.created_at).toISOString()}
+                                    {new Date(rumor.createdAt).toISOString()}
                                 </p>
                                 <p>
                                     Last Updated:{" "}
-                                    {new Date(rumor.updated_at).toISOString()}
+                                    {new Date(rumor.updatedAt).toISOString()}
                                 </p>
                             </CardContent>
                         </Card>

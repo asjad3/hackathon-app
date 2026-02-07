@@ -20,7 +20,7 @@ export async function summarizeAndCheckSafety(rumorContent: string): Promise<Sum
 
   const prompt = `You are a neutral assistant for a campus rumor board. Do two things:
 
-1. Summarize the following rumor in 1-2 short sentences (max 2 lines). Be factual and neutral. Output only the summary, no labels.
+1. Summarize the following rumor in 1-2 short sentences (max 2 lines). Be factual and neutral. Write the summary in third-person or passive voice (e.g., "The cafeteria will be closed" or "Someone reported seeing..."). DO NOT use phrases like "User says" or "User does" - write naturally as if reporting the rumor directly. Output only the summary, no labels.
 2. Then on a new line write exactly "SAFE" or "WARNING" if the content appears to contain harassment, threats, hate speech, or serious harm. If unsure, say SAFE.
 
 Rumor text:
