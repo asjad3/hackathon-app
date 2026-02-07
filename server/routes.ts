@@ -216,14 +216,7 @@ export async function registerRoutes(
         }
     });
 
-    // Mock auth endpoints for local development
-    app.get("/api/auth/user", (req, res) => {
-        res.json({
-            id: req.user!.id,
-            username: "dev-user",
-            displayName: "Local Dev User"
-        });
-    });
+
 
     app.get("/api/logout", (req: any, res) => {
         req.session.destroy(() => {

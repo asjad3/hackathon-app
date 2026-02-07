@@ -109,11 +109,16 @@ function Router() {
   return (
     <>
       <UserIdModal open={showModal} onSubmit={handleUserIdSubmit} />
-      <Switch>
-        <Route path="/" component={FeedPage} />
-        <Route path="/rumor/:id" component={RumorDetailPage} />
-        <Route component={NotFound} />
-      </Switch>
+      {showModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-40" />
+      )}
+      <div className={showModal ? "blur-sm pointer-events-none" : ""}>
+        <Switch>
+          <Route path="/" component={FeedPage} />
+          <Route path="/rumor/:id" component={RumorDetailPage} />
+          <Route component={NotFound} />
+        </Switch>
+      </div>
     </>
   );
 }
