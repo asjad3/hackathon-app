@@ -298,7 +298,47 @@ export class DatabaseStorage implements IStorage {
             // 3. Get or create user (using consistent user hash)
             const user = await this.getOrCreateUser(userHash);
 
-            // 4. Check if user has enough points
+            // 4. Get evidence details to check rumor status
+            const { data: evidence } = await supabase
+                .from("evidence")
+                .select("*, rumor_id")
+                .eq("id", data.evidenceId)
+                .single();
+
+            if (!evidence) throw new Error("Evidence not found");
+
+            // 5. Check if rumor is expired or resolved
+            const { data: rumor } = await supabase
+                .from("rumors")
+                .select("status, expiry_date")
+                .eq("id", evidence.rumor_id)
+                .single();
+
+            if (!rumor) throw new Error("Rumor not found");
+
+            // Check if rumor has expired
+            if (rumor.expiry_date) {
+                const expiryDate = new Date(rumor.expiry_date);
+                const now = new Date();
+                if (now >= expiryDate) {
+                    // Auto-resolve the expired rumor
+                    await this.resolveExpiredRumor(evidence.rumor_id);
+                    return {
+                        success: false,
+                        error: "This rumor has expired and can no longer be voted on. It has been automatically resolved.",
+                    };
+                }
+            }
+
+            // Check if rumor is already resolved
+            if (rumor.status !== "Active") {
+                return {
+                    success: false,
+                    error: `This rumor has been ${rumor.status.toLowerCase()} and is no longer accepting votes.`,
+                };
+            }
+
+            // 6. Check if user has enough points
             const availablePoints = user.total_points - user.points_staked;
             if (availablePoints < stake) {
                 return {
@@ -307,7 +347,7 @@ export class DatabaseStorage implements IStorage {
                 };
             }
 
-            // 5. Check for duplicate vote (using vote hash with evidence ID)
+            // 7. Check for duplicate vote (using vote hash with evidence ID)
             const { data: existing, error: checkError } = await supabase
                 .from("evidence_votes")
                 .select("id")
@@ -326,21 +366,21 @@ export class DatabaseStorage implements IStorage {
                 };
             }
 
-            // 6. Get evidence details (need rumor_id for vote_outcomes)
-            const { data: evidence } = await supabase
+            // 6. Get evidence details again for vote_outcomes and creator check
+            const { data: evidenceDetails } = await supabase
                 .from("evidence")
                 .select("*, rumor_id")
                 .eq("id", data.evidenceId)
                 .single();
 
-            if (!evidence) throw new Error("Evidence not found");
+            if (!evidenceDetails) throw new Error("Evidence not found");
 
             // 7. Check if user is trying to vote on their own evidence
             const userCreatorHash = createHash("sha256")
                 .update(`${data.userId}:${salt}:creator`)
                 .digest("hex");
 
-            if (evidence.creator_hash === userCreatorHash) {
+            if (evidenceDetails.creator_hash === userCreatorHash) {
                 return {
                     success: false,
                     error: "You cannot vote on your own evidence",
@@ -348,8 +388,8 @@ export class DatabaseStorage implements IStorage {
             }
 
             // 8. Calculate evidence quality (for vote weight)
-            const helpfulCount = evidence.helpful_count || 0;
-            const misleadingCount = evidence.misleading_count || 0;
+            const helpfulCount = evidenceDetails.helpful_count || 0;
+            const misleadingCount = evidenceDetails.misleading_count || 0;
             const totalVotes = helpfulCount + misleadingCount;
             const evidenceQuality =
                 totalVotes > 0 ? helpfulCount / totalVotes : 0.5;
@@ -378,7 +418,7 @@ export class DatabaseStorage implements IStorage {
             // 12. Create vote outcome record (using user hash for later resolution)
             await supabase.from("vote_outcomes").insert({
                 vote_hash: userHash,
-                rumor_id: evidence.rumor_id,
+                rumor_id: evidenceDetails.rumor_id,
                 evidence_id: data.evidenceId,
                 vote_type: voteType,
                 stake_amount: stake,
@@ -395,7 +435,7 @@ export class DatabaseStorage implements IStorage {
 
             // 14. Update evidence vote counts
             const field = data.isHelpful ? "helpful_count" : "misleading_count";
-            const newCount = (evidence[field] || 0) + 1;
+            const newCount = (evidenceDetails[field] || 0) + 1;
 
             await supabase
                 .from("evidence")
@@ -410,7 +450,7 @@ export class DatabaseStorage implements IStorage {
             );
 
             // 16. Recalculate rumor trust score
-            const result = await this.updateRumorScore(evidence.rumor_id);
+            const result = await this.updateRumorScore(evidenceDetails.rumor_id);
 
             return {
                 success: true,
@@ -436,6 +476,8 @@ export class DatabaseStorage implements IStorage {
         stakeAmount?: number;
     }): Promise<{
         success: boolean;
+        newTrustScore?: number;
+        newStatus?: string;
         error?: string;
     }> {
         try {
@@ -449,6 +491,42 @@ export class DatabaseStorage implements IStorage {
 
             // Get or create user
             const user = await this.getOrCreateUser(userHash);
+
+            // Check if rumor exists and get its status and expiry
+            const { data: rumor } = await supabase
+                .from("rumors")
+                .select("status, expiry_date, trust_score")
+                .eq("id", data.rumorId)
+                .single();
+
+            if (!rumor) {
+                return {
+                    success: false,
+                    error: "Rumor not found",
+                };
+            }
+
+            // Check if rumor has expired
+            if (rumor.expiry_date) {
+                const expiryDate = new Date(rumor.expiry_date);
+                const now = new Date();
+                if (now >= expiryDate) {
+                    // Auto-resolve the expired rumor
+                    await this.resolveExpiredRumor(data.rumorId);
+                    return {
+                        success: false,
+                        error: "This rumor has expired and can no longer be voted on. It has been automatically resolved.",
+                    };
+                }
+            }
+
+            // Check if rumor is already resolved
+            if (rumor.status !== "Active") {
+                return {
+                    success: false,
+                    error: `This rumor has been ${rumor.status.toLowerCase()} and is no longer accepting votes.`,
+                };
+            }
 
             // Check available points
             const availablePoints = user.total_points - user.points_staked;
@@ -474,8 +552,28 @@ export class DatabaseStorage implements IStorage {
                 };
             }
 
-            // Calculate vote weight: reputation × stake
-            const voteWeight = user.reputation * stake;
+            // Calculate user credibility based on total tokens
+            // Users with more tokens have higher credibility (but diminishing returns)
+            // Formula: credibility = log(1 + total_points) / log(1 + 10000)
+            // This gives 0-1 scale where 10000 tokens = 1.0 credibility
+            const userCredibility = Math.log(1 + user.total_points) / Math.log(1 + 10000);
+
+            // Calculate vote weight: base_reputation × user_credibility × stake
+            // This means:
+            // - User's proven reputation (from past correct votes)
+            // - User's wealth/credibility (total tokens)
+            // - Amount they're willing to risk (stake)
+            const voteWeight = user.reputation * userCredibility * stake;
+
+            console.log('[RumorVote] Vote weight calculation:', {
+                userId: data.userId.slice(0, 8),
+                reputation: user.reputation,
+                totalPoints: user.total_points,
+                userCredibility: userCredibility.toFixed(3),
+                stake,
+                finalWeight: voteWeight.toFixed(3),
+                voteType: data.voteType,
+            });
 
             // Insert vote
             const { error: voteError } = await supabase
@@ -487,6 +585,7 @@ export class DatabaseStorage implements IStorage {
                     stake_amount: stake,
                     voter_reputation: user.reputation,
                     vote_weight: voteWeight,
+                    user_credibility: userCredibility,
                 });
 
             if (voteError) throw voteError;
@@ -503,7 +602,14 @@ export class DatabaseStorage implements IStorage {
             // Bot detection
             await this.checkBotBehavior(userHash);
 
-            return { success: true };
+            // Recalculate rumor trust score
+            const result = await this.updateRumorScore(data.rumorId);
+
+            return {
+                success: true,
+                newTrustScore: result.newScore,
+                newStatus: result.newStatus,
+            };
         } catch (err) {
             console.error("Rumor vote creation error:", err);
             return {
@@ -594,57 +700,104 @@ export class DatabaseStorage implements IStorage {
 
         const oldScore = rumor.trust_score;
 
-        // Get all evidence for this rumor
+        // Calculate Bayesian score using both EVIDENCE votes and DIRECT RUMOR votes
+        let alpha = 1.0; // Prior for supporting/verify
+        let beta = 1.0; // Prior for disputing/debunk
+
+        // PART 1: Process Evidence Votes (existing logic)
         const { data: evidenceList } = await supabase
             .from("evidence")
             .select("*")
             .eq("rumor_id", rumorId);
 
-        if (!evidenceList || evidenceList.length === 0) {
-            return { newScore: 0.5, newStatus: "Active" };
+        if (evidenceList && evidenceList.length > 0) {
+            for (const ev of evidenceList) {
+                // Fetch individual votes with their weights for this evidence
+                const { data: votes } = await supabase
+                    .from("evidence_votes")
+                    .select("vote_type, vote_weight")
+                    .eq("evidence_id", ev.id);
+
+                if (!votes || votes.length === 0) continue;
+
+                // Sum weighted helpful and misleading votes
+                let weightedHelpful = 0;
+                let weightedMisleading = 0;
+                for (const v of votes) {
+                    if (v.vote_type === "helpful") {
+                        weightedHelpful += v.vote_weight || 1;
+                    } else {
+                        weightedMisleading += v.vote_weight || 1;
+                    }
+                }
+
+                const netWeight = weightedHelpful - weightedMisleading;
+
+                // Only count evidence that the community trusts (positive net weight)
+                if (netWeight > 0) {
+                    // Apply log scaling to cap mob influence
+                    const weight = 1 + Math.log(Math.max(1, netWeight));
+
+                    if (ev.evidence_type === "support") {
+                        alpha += weight;
+                    } else if (ev.evidence_type === "dispute") {
+                        beta += weight;
+                    }
+                }
+            }
         }
 
-        // Calculate Bayesian score using VOTE WEIGHTS (reputation × stake × quality)
-        let alpha = 1.0; // Prior for supporting
-        let beta = 1.0; // Prior for disputing
+        // PART 2: Process Direct Rumor Votes (NEW - weighted by user credibility and stake)
+        const { data: rumorVotes } = await supabase
+            .from("rumor_votes")
+            .select("vote_type, vote_weight, user_credibility, stake_amount, voter_reputation")
+            .eq("rumor_id", rumorId);
 
-        for (const ev of evidenceList) {
-            // Fetch individual votes with their weights for this evidence
-            const { data: votes } = await supabase
-                .from("evidence_votes")
-                .select("vote_type, vote_weight")
-                .eq("evidence_id", ev.id);
+        if (rumorVotes && rumorVotes.length > 0) {
+            let totalVerifyWeight = 0;
+            let totalDebunkWeight = 0;
 
-            if (!votes || votes.length === 0) continue;
-
-            // Sum weighted helpful and misleading votes
-            let weightedHelpful = 0;
-            let weightedMisleading = 0;
-            for (const v of votes) {
-                if (v.vote_type === "helpful") {
-                    weightedHelpful += v.vote_weight || 1;
-                } else {
-                    weightedMisleading += v.vote_weight || 1;
+            for (const vote of rumorVotes) {
+                const weight = vote.vote_weight || 1;
+                if (vote.vote_type === "verify") {
+                    totalVerifyWeight += weight;
+                } else if (vote.vote_type === "debunk") {
+                    totalDebunkWeight += weight;
                 }
             }
 
-            const netWeight = weightedHelpful - weightedMisleading;
+            // Apply logarithmic scaling to prevent whale dominance
+            // This gives more weight to initial votes and diminishing returns for later ones
+            if (totalVerifyWeight > 0) {
+                const verifyContribution = 1 + Math.log(1 + totalVerifyWeight);
+                alpha += verifyContribution;
+                console.log('[TrustScore] Verify votes contribution:', {
+                    totalWeight: totalVerifyWeight.toFixed(2),
+                    contribution: verifyContribution.toFixed(2),
+                });
+            }
 
-            // Only count evidence that the community trusts (positive net weight)
-            if (netWeight > 0) {
-                // Apply log scaling to cap mob influence
-                const weight = 1 + Math.log(Math.max(1, netWeight));
-
-                if (ev.evidence_type === "support") {
-                    alpha += weight;
-                } else if (ev.evidence_type === "dispute") {
-                    beta += weight;
-                }
+            if (totalDebunkWeight > 0) {
+                const debunkContribution = 1 + Math.log(1 + totalDebunkWeight);
+                beta += debunkContribution;
+                console.log('[TrustScore] Debunk votes contribution:', {
+                    totalWeight: totalDebunkWeight.toFixed(2),
+                    contribution: debunkContribution.toFixed(2),
+                });
             }
         }
 
         // Calculate new score (Beta distribution mean)
         const newScore = alpha / (alpha + beta);
+
+        console.log('[TrustScore] Final calculation:', {
+            rumorId: rumorId.slice(0, 8),
+            alpha: alpha.toFixed(2),
+            beta: beta.toFixed(2),
+            oldScore: oldScore.toFixed(3),
+            newScore: newScore.toFixed(3),
+            change: (newScore - oldScore).toFixed(3),
+        });
 
         // Status stays Active — only the resolution cron sets final Verified/Debunked/Inconclusive
         // This prevents premature resolution and ensures the 48h threshold is enforced
@@ -1087,6 +1240,41 @@ export class DatabaseStorage implements IStorage {
         );
 
         return votersUpdated;
+    }
+
+    /**
+     * Resolve an expired rumor based on its current trust score
+     */
+    async resolveExpiredRumor(rumorId: string): Promise<void> {
+        console.log(`[ResolveExpired] Resolving expired rumor: ${rumorId.slice(0, 8)}`);
+
+        // Get current rumor
+        const { data: rumor } = await supabase
+            .from("rumors")
+            .select("trust_score, status")
+            .eq("id", rumorId)
+            .single();
+
+        if (!rumor || rumor.status !== "Active") {
+            console.log(`[ResolveExpired] Rumor ${rumorId.slice(0, 8)} is not active, skipping`);
+            return;
+        }
+
+        // Determine final status based on trust score
+        let finalStatus: "Verified" | "Debunked" | "Inconclusive";
+
+        if (rumor.trust_score >= 0.75) {
+            finalStatus = "Verified";
+        } else if (rumor.trust_score <= 0.25) {
+            finalStatus = "Debunked";
+        } else {
+            finalStatus = "Inconclusive";
+        }
+
+        console.log(`[ResolveExpired] Resolving as ${finalStatus} (score: ${rumor.trust_score.toFixed(3)})`);
+
+        // Resolve the rumor
+        await this.resolveRumor(rumorId, finalStatus);
     }
 
     async checkAndResolveRumors(): Promise<{

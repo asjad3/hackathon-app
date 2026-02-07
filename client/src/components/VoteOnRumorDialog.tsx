@@ -18,9 +18,11 @@ import { useToast } from "@/hooks/use-toast";
 interface VoteOnRumorDialogProps {
     rumorId: string;
     voteType: "verify" | "debunk";
+    disabled?: boolean;
+    disabledReason?: string;
 }
 
-export function VoteOnRumorDialog({ rumorId, voteType }: VoteOnRumorDialogProps) {
+export function VoteOnRumorDialog({ rumorId, voteType, disabled = false, disabledReason }: VoteOnRumorDialogProps) {
     const [open, setOpen] = useState(false);
     const [stakeAmount, setStakeAmount] = useState([1]);
     const queryClient = useQueryClient();
@@ -90,9 +92,10 @@ export function VoteOnRumorDialog({ rumorId, voteType }: VoteOnRumorDialogProps)
     return (
         <>
             <Button
-                onClick={() => setOpen(true)}
+                onClick={() => disabled ? toast({ title: "Voting Disabled", description: disabledReason || "This rumor is no longer accepting votes.", variant: "destructive" }) : setOpen(true)}
                 className={`gap-2 ${colorClass}`}
-                disabled={voteRumor.isPending}
+                disabled={disabled || voteRumor.isPending}
+                variant={disabled ? "outline" : "default"}
             >
                 <Icon className="h-4 w-4" />
                 {label}

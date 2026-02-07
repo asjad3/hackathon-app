@@ -82,6 +82,45 @@ export default function RumorDetailPage() {
             <Navbar />
 
             <main className="container max-w-5xl mx-auto py-8 px-4">
+                {/* Expired/Resolved Banner */}
+                {isVotingBlocked && (
+                    <Card className="mb-6 border-2 border-amber-500/50 bg-amber-500/10">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center gap-4">
+                                <div className="flex-shrink-0">
+                                    {isExpired ? (
+                                        <Badge className="bg-amber-500 text-black font-bold text-lg px-4 py-2">
+                                            ⏸️ EXPIRED
+                                        </Badge>
+                                    ) : (
+                                        <Badge className={`font-bold text-lg px-4 py-2 ${(rumor as any).status === "Verified"
+                                                ? "bg-[hsl(var(--status-verified))] text-white"
+                                                : (rumor as any).status === "Debunked"
+                                                    ? "bg-destructive text-white"
+                                                    : "bg-muted text-foreground"
+                                            }`}>
+                                            {(rumor as any).status === "Verified" && "✓ VERIFIED"}
+                                            {(rumor as any).status === "Debunked" && "✗ DEBUNKED"}
+                                            {(rumor as any).status === "Inconclusive" && "⚠️ INCONCLUSIVE"}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-semibold text-lg mb-1">
+                                        {isExpired ? "This rumor has expired" : `This rumor has been ${(rumor as any).status.toLowerCase()}`}
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        {isExpired
+                                            ? "Voting is no longer possible. The rumor has been automatically resolved based on its trust score."
+                                            : "Voting is closed. The investigation has concluded."
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Header Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                     <div className="lg:col-span-2 space-y-6">
@@ -180,18 +219,28 @@ export default function RumorDetailPage() {
                                 </p>
 
                                 {/* Vote on Rumor Buttons */}
-                                {rumor.status === "Active" && (
-                                    <div className="flex gap-3 pt-2">
-                                        <VoteOnRumorDialog
-                                            rumorId={id}
-                                            voteType="verify"
-                                        />
-                                        <VoteOnRumorDialog
-                                            rumorId={id}
-                                            voteType="debunk"
-                                        />
-                                    </div>
-                                )}
+                                <div className="flex gap-3 pt-2">
+                                    <VoteOnRumorDialog
+                                        rumorId={id}
+                                        voteType="verify"
+                                        disabled={isVotingBlocked}
+                                        disabledReason={
+                                            isExpired
+                                                ? "This rumor has expired and is no longer accepting votes."
+                                                : `This rumor has been ${(rumor as any).status.toLowerCase()} and is closed.`
+                                        }
+                                    />
+                                    <VoteOnRumorDialog
+                                        rumorId={id}
+                                        voteType="debunk"
+                                        disabled={isVotingBlocked}
+                                        disabledReason={
+                                            isExpired
+                                                ? "This rumor has expired and is no longer accepting votes."
+                                                : `This rumor has been ${(rumor as any).status.toLowerCase()} and is closed.`
+                                        }
+                                    />
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
@@ -249,7 +298,15 @@ export default function RumorDetailPage() {
                             </TabsTrigger>
                             <TabsTrigger value="meta">Metadata</TabsTrigger>
                         </TabsList>
-                        <AddEvidenceDialog rumorId={id} />
+                        <AddEvidenceDialog
+                            rumorId={id}
+                            disabled={isVotingBlocked}
+                            disabledReason={
+                                isExpired
+                                    ? "This rumor has expired and is no longer accepting evidence."
+                                    : `This rumor has been ${(rumor as any).status.toLowerCase()} and is closed.`
+                            }
+                        />
                     </div>
 
                     <TabsContent value="evidence" className="space-y-8">

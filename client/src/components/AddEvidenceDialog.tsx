@@ -41,9 +41,11 @@ type FormData = z.infer<typeof formSchema>;
 
 interface AddEvidenceDialogProps {
     rumorId: string;
+    disabled?: boolean;
+    disabledReason?: string;
 }
 
-export function AddEvidenceDialog({ rumorId }: AddEvidenceDialogProps) {
+export function AddEvidenceDialog({ rumorId, disabled = false, disabledReason }: AddEvidenceDialogProps) {
     const [open, setOpen] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -120,9 +122,25 @@ export function AddEvidenceDialog({ rumorId }: AddEvidenceDialogProps) {
     const isPending = createEvidence.isPending || isUploading;
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) removeImage(); }}>
+        <Dialog open={open} onOpenChange={(v) => {
+            if (disabled && v) {
+                toast({
+                    title: "Evidence Submission Disabled",
+                    description: disabledReason || "This rumor is no longer accepting evidence.",
+                    variant: "destructive"
+                });
+                return;
+            }
+            setOpen(v);
+            if (!v) removeImage();
+        }}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={disabled}
+                >
                     <PlusCircle className="h-4 w-4" />
                     Add Evidence
                 </Button>
