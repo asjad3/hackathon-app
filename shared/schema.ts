@@ -33,6 +33,7 @@ export const rumors = pgTable("rumors", {
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     summary: text("summary"),
     contentWarning: boolean("content_warning").default(false),
+    imageUrl: text("image_url"),
 });
 
 export const evidence = pgTable("evidence", {

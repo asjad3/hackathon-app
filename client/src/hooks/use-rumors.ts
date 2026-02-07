@@ -84,13 +84,14 @@ export function useCreateEvidence() {
     return useMutation({
         mutationFn: async ({
             rumorId,
+            imageUrl,
             ...data
-        }: InsertEvidence & { rumorId: string }) => {
+        }: InsertEvidence & { rumorId: string; imageUrl?: string }) => {
             const url = buildUrl(api.evidence.create.path, { id: rumorId });
             const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
+                body: JSON.stringify({ ...data, imageUrl }),
                 credentials: "include",
             });
 
