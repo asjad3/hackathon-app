@@ -92,6 +92,32 @@ export const api = {
       },
     },
   },
+  auth: {
+    setUserId: {
+      method: 'POST' as const,
+      path: '/api/auth/set-user-id',
+      input: z.object({
+        userId: z.string().min(3).max(50),
+      }),
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+          userId: z.string(),
+        }),
+        400: errorSchemas.validation,
+      },
+    },
+    status: {
+      method: 'GET' as const,
+      path: '/api/auth/status',
+      responses: {
+        200: z.object({
+          authenticated: z.boolean(),
+          userId: z.string().optional(),
+        }),
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

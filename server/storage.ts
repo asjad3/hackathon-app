@@ -30,6 +30,7 @@ export interface IStorage {
         contentType: "link" | "image" | "text";
         contentUrl?: string;
         contentText?: string;
+        creatorHash: string;
     }): Promise<Evidence>;
 
     // Votes & Scoring
@@ -47,9 +48,7 @@ export interface IStorage {
 
     // User Management
     getOrCreateUser(voteHash: string): Promise<import("./supabase").User>;
-    getUserStats(
-        voteHash: string,
-    ): Promise<{
+    getUserStats(voteHash: string): Promise<{
         reputation: number;
         totalPoints: number;
         pointsStaked: number;
@@ -62,7 +61,14 @@ export interface IStorage {
         rumorId: string,
         finalStatus: "Verified" | "Debunked" | "Inconclusive",
     ): Promise<number>;
-    checkAndResolveRumors(): Promise<{ resolved: number; rumors: Array<{ rumorId: string; newStatus: string; votersUpdated: number }> }>;
+    checkAndResolveRumors(): Promise<{
+        resolved: number;
+        rumors: Array<{
+            rumorId: string;
+            newStatus: string;
+            votersUpdated: number;
+        }>;
+    }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -241,6 +247,7 @@ export class DatabaseStorage implements IStorage {
         contentType: "link" | "image" | "text";
         contentUrl?: string;
         contentText?: string;
+        creatorHash: string;
     }): Promise<Evidence> {
         const { data: evidence, error } = await supabase
             .from("evidence")
@@ -250,6 +257,7 @@ export class DatabaseStorage implements IStorage {
                 content_type: data.contentType,
                 content_url: data.contentUrl || null,
                 content_text: data.contentText || null,
+                creator_hash: data.creatorHash,
             })
             .select()
             .single();
@@ -272,16 +280,22 @@ export class DatabaseStorage implements IStorage {
         try {
             const stake = data.stakeAmount || 1; // Default stake is 1 point
 
-            // 1. Generate anonymous vote hash
             const salt = process.env.VOTE_SALT || "HACKATHON_SECRET_SALT_2026";
+
+            // 1. Generate user hash (consistent across all votes for this user)
+            const userHash = createHash("sha256")
+                .update(`${data.userId}:${salt}`)
+                .digest("hex");
+
+            // 2. Generate vote hash (unique per evidence to prevent duplicates)
             const voteHash = createHash("sha256")
                 .update(`${data.userId}:${salt}:${data.evidenceId}`)
                 .digest("hex");
 
-            // 2. Get or create user
-            const user = await this.getOrCreateUser(voteHash);
+            // 3. Get or create user (using consistent user hash)
+            const user = await this.getOrCreateUser(userHash);
 
-            // 3. Check if user has enough points
+            // 4. Check if user has enough points
             const availablePoints = user.total_points - user.points_staked;
             if (availablePoints < stake) {
                 return {
@@ -290,7 +304,7 @@ export class DatabaseStorage implements IStorage {
                 };
             }
 
-            // 4. Check for duplicate vote
+            // 5. Check for duplicate vote (using vote hash with evidence ID)
             const { data: existing, error: checkError } = await supabase
                 .from("evidence_votes")
                 .select("id")
@@ -309,7 +323,7 @@ export class DatabaseStorage implements IStorage {
                 };
             }
 
-            // 5. Get evidence details (need rumor_id for vote_outcomes)
+            // 6. Get evidence details (need rumor_id for vote_outcomes)
             const { data: evidence } = await supabase
                 .from("evidence")
                 .select("*, rumor_id")
@@ -318,20 +332,32 @@ export class DatabaseStorage implements IStorage {
 
             if (!evidence) throw new Error("Evidence not found");
 
-            // 6. Calculate evidence quality (for vote weight)
+            // 7. Check if user is trying to vote on their own evidence
+            const userCreatorHash = createHash("sha256")
+                .update(`${data.userId}:${salt}:creator`)
+                .digest("hex");
+
+            if (evidence.creator_hash === userCreatorHash) {
+                return {
+                    success: false,
+                    error: "You cannot vote on your own evidence",
+                };
+            }
+
+            // 8. Calculate evidence quality (for vote weight)
             const helpfulCount = evidence.helpful_count || 0;
             const misleadingCount = evidence.misleading_count || 0;
             const totalVotes = helpfulCount + misleadingCount;
             const evidenceQuality =
                 totalVotes > 0 ? helpfulCount / totalVotes : 0.5;
 
-            // 7. Calculate vote weight: reputation × (1 + evidence_quality) × stake
+            // 9. Calculate vote weight: reputation × (1 + evidence_quality) × stake
             const voteWeight = user.reputation * (1 + evidenceQuality) * stake;
 
-            // 8. Check bot behavior (timing pattern)
-            await this.checkBotBehavior(voteHash);
+            // 10. Check bot behavior (timing pattern, using user hash)
+            await this.checkBotBehavior(userHash);
 
-            // 9. Insert vote with weight and reputation snapshot
+            // 11. Insert vote with weight and reputation snapshot (using vote hash for duplicates)
             const voteType = data.isHelpful ? "helpful" : "misleading";
             const { error: voteError } = await supabase
                 .from("evidence_votes")
@@ -346,25 +372,25 @@ export class DatabaseStorage implements IStorage {
 
             if (voteError) throw voteError;
 
-            // 10. Create vote outcome record (for later resolution)
+            // 12. Create vote outcome record (using user hash for later resolution)
             await supabase.from("vote_outcomes").insert({
-                vote_hash: voteHash,
+                vote_hash: userHash,
                 rumor_id: evidence.rumor_id,
                 evidence_id: data.evidenceId,
                 vote_type: voteType,
                 stake_amount: stake,
             });
 
-            // 11. Update user's staked points
+            // 13. Update user's staked points (using consistent user hash)
             await supabase
                 .from("users")
                 .update({
                     points_staked: user.points_staked + stake,
                     updated_at: new Date().toISOString(),
                 })
-                .eq("vote_hash", voteHash);
+                .eq("vote_hash", userHash);
 
-            // 12. Update evidence vote counts
+            // 14. Update evidence vote counts
             const field = data.isHelpful ? "helpful_count" : "misleading_count";
             const newCount = (evidence[field] || 0) + 1;
 
@@ -373,14 +399,14 @@ export class DatabaseStorage implements IStorage {
                 .update({ [field]: newCount })
                 .eq("id", data.evidenceId);
 
-            // 13. Update agreement correlation (bot detection)
+            // 15. Update agreement correlation (bot detection, using user hash)
             await this.updateAgreementCorrelation(
-                voteHash,
+                userHash,
                 data.evidenceId,
                 voteType,
             );
 
-            // 14. Recalculate rumor trust score
+            // 16. Recalculate rumor trust score
             const result = await this.updateRumorScore(evidence.rumor_id);
 
             return {
@@ -527,7 +553,7 @@ export class DatabaseStorage implements IStorage {
         const updates: any = {
             trust_score: newScore,
             status: newStatus,
-            updated_at: now
+            updated_at: now,
         };
 
         // Track when score crosses 0.75 threshold
@@ -545,10 +571,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         // Update rumor
-        await supabase
-            .from("rumors")
-            .update(updates)
-            .eq("id", rumorId);
+        await supabase.from("rumors").update(updates).eq("id", rumorId);
 
         // Log to audit trail
         await supabase.from("audit_log").insert({

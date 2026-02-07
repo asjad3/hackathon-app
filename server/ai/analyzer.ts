@@ -1,6 +1,6 @@
 /**
  * AI Rumor Analyzer - Comprehensive analysis using Google Gemini
- * 
+ *
  * Features:
  * 1. Summarization for long rumors
  * 2. Time-bound classification with expiry detection
@@ -101,7 +101,7 @@ RUMOR CREATED AT: ${createdAt}
 CURRENT DATE: ${new Date().toISOString()}
 
 TASKS:
-1. **Summarization**: Create a concise 1-2 sentence summary (max 200 chars). If rumor is already short, return the original.
+1. **Summarization**: Create a concise 1-2 sentence summary (max 200 chars). Write in third-person or passive voice (e.g., "The cafeteria will be closed" or "Someone reported seeing..."). DO NOT use phrases like "User says" or "User does" - write naturally as if reporting the rumor directly. If rumor is already short, return the original.
 
 2. **Time-Bound Detection**: Determine if this rumor has temporal relevance that will expire.
    Examples of TIME-BOUND rumors:
@@ -109,12 +109,12 @@ TASKS:
    - "There's a party this Friday night"
    - "Registration deadline is March 15th"
    - "Tomorrow's classes are cancelled"
-   
+
    Examples of NON-TIME-BOUND rumors:
    - "The library 3rd floor is haunted"
    - "The cafeteria food is overpriced"
    - "Professor Smith is the best teacher"
-   
+
    If TIME-BOUND, calculate expiry date based on:
    - "today" = createdAt + 1 day
    - "tomorrow" = createdAt + 2 days

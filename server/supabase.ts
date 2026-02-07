@@ -1,19 +1,25 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 // Server-side Supabase client with service role key (bypasses RLS)
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.warn('⚠️ Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env');
+    console.warn(
+        "⚠️ Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env",
+    );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+export const supabase = createClient(
+    supabaseUrl || "",
+    supabaseServiceKey || "",
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+        },
+    },
+);
 
 // Database types based on your Supabase schema
 export interface Database {
@@ -272,14 +278,16 @@ export interface Database {
         };
       };
     };
-  };
 }
 
-export type Rumor = Database['public']['Tables']['rumors']['Row'];
-export type Evidence = Database['public']['Tables']['evidence']['Row'];
-export type EvidenceVote = Database['public']['Tables']['evidence_votes']['Row'];
-export type AuditLog = Database['public']['Tables']['audit_log']['Row'];
-export type UserFingerprint = Database['public']['Tables']['user_fingerprints']['Row'];
-export type User = Database['public']['Tables']['users']['Row'];
-export type VoteOutcome = Database['public']['Tables']['vote_outcomes']['Row'];
-export type VoteAgreement = Database['public']['Tables']['vote_agreements']['Row'];
+export type Rumor = Database["public"]["Tables"]["rumors"]["Row"];
+export type Evidence = Database["public"]["Tables"]["evidence"]["Row"];
+export type EvidenceVote =
+    Database["public"]["Tables"]["evidence_votes"]["Row"];
+export type AuditLog = Database["public"]["Tables"]["audit_log"]["Row"];
+export type UserFingerprint =
+    Database["public"]["Tables"]["user_fingerprints"]["Row"];
+export type User = Database["public"]["Tables"]["users"]["Row"];
+export type VoteOutcome = Database["public"]["Tables"]["vote_outcomes"]["Row"];
+export type VoteAgreement =
+    Database["public"]["Tables"]["vote_agreements"]["Row"];
