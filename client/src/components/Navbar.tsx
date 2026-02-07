@@ -13,9 +13,21 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Navbar() {
-    const { user, logout } = useAuth();
+    const { user, isLoading, logout } = useAuth();
     const [location] = useLocation();
 
+    // Show loading skeleton while auth status is being determined
+    if (isLoading) {
+        return (
+            <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur">
+                <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-4">
+                    <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+                </div>
+            </header>
+        );
+    }
+
+    // Only hide navbar if user is explicitly null (not authenticated)
     if (!user) return null;
 
     return (
@@ -54,15 +66,15 @@ export function Navbar() {
                             >
                                 <Avatar className="h-9 w-9">
                                     <AvatarImage
-                                        src={user.profileImageUrl || undefined}
-                                        alt={user.firstName || "User"}
+                                        src={user?.profileImageUrl || undefined}
+                                        alt={user?.firstName || "User"}
                                     />
                                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-mono font-bold">
-                                        {user.firstName?.[0] ||
-                                            user.id?.[0]?.toUpperCase() ||
+                                        {user?.firstName?.[0] ||
+                                            user?.id?.[0]?.toUpperCase() ||
                                             "U"}
-                                        {user.lastName?.[0] ||
-                                            user.id?.[1]?.toUpperCase() ||
+                                        {user?.lastName?.[0] ||
+                                            user?.id?.[1]?.toUpperCase() ||
                                             ""}
                                     </AvatarFallback>
                                 </Avatar>
@@ -75,12 +87,12 @@ export function Navbar() {
                             <DropdownMenuLabel>
                                 <div className="flex flex-col space-y-1">
                                     <p className="font-medium leading-none font-sans text-sm">
-                                        {user.firstName && user.lastName
+                                        {user?.firstName && user?.lastName
                                             ? `${user.firstName} ${user.lastName}`
-                                            : `User: ${user.id}`}
+                                            : `User: ${user?.id || "Unknown"}`}
                                     </p>
                                     <p className="text-xs leading-none text-muted-foreground">
-                                        {user.email || "Anonymous Session"}
+                                        {user?.email || "Anonymous Session"}
                                     </p>
                                 </div>
                             </DropdownMenuLabel>

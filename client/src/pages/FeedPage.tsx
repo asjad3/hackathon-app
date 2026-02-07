@@ -26,8 +26,11 @@ export default function FeedPage() {
     if (isLoading) return <FeedSkeleton />;
     if (error)
         return (
-            <div className="p-8 text-center text-destructive">
-                Error loading feed.
+            <div className="min-h-screen bg-background">
+                <Navbar />
+                <div className="p-8 text-center text-destructive">
+                    Error loading feed.
+                </div>
             </div>
         );
 

@@ -41,7 +41,12 @@ export default function RumorDetailPage() {
 
     if (isLoading) return <DetailSkeleton />;
     if (error || !rumor)
-        return <div className="p-20 text-center">Rumor not found</div>;
+        return (
+            <div className="min-h-screen bg-background">
+                <Navbar />
+                <div className="p-20 text-center">Rumor not found</div>
+            </div>
+        );
 
     const expiryDate = (rumor as any).expiry_date;
     const isExpired = expiryDate && new Date(expiryDate) < new Date();
@@ -154,12 +159,18 @@ export default function RumorDetailPage() {
                                     algorithm based on the quality and quantity
                                     of supporting vs. disputing evidence.
                                 </p>
-                                
+
                                 {/* Vote on Rumor Buttons */}
                                 {rumor.status === "Active" && (
                                     <div className="flex gap-3 pt-2">
-                                        <VoteOnRumorDialog rumorId={id} voteType="verify" />
-                                        <VoteOnRumorDialog rumorId={id} voteType="debunk" />
+                                        <VoteOnRumorDialog
+                                            rumorId={id}
+                                            voteType="verify"
+                                        />
+                                        <VoteOnRumorDialog
+                                            rumorId={id}
+                                            voteType="debunk"
+                                        />
                                     </div>
                                 )}
                             </CardContent>

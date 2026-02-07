@@ -146,8 +146,22 @@ export function useVoteEvidence() {
             });
 
             if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.message || "Failed to vote");
+                // Check if response is JSON before parsing
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    const error = await res.json();
+                    throw new Error(error.message || "Failed to vote");
+                } else {
+                    // Got HTML or other non-JSON response (likely error page)
+                    const text = await res.text();
+                    console.error(
+                        "Non-JSON error response:",
+                        text.substring(0, 200),
+                    );
+                    throw new Error(
+                        `Server error (${res.status}): ${res.statusText}`,
+                    );
+                }
             }
 
             return api.evidence.vote.responses[200].parse(await res.json());
@@ -166,10 +180,11 @@ export function useVoteEvidence() {
                     : "Your vote has been hashed and recorded.",
             });
         },
-        onError: (error) => {
+        onError: (error: Error) => {
+            console.error("Vote error:", error);
             toast({
                 title: "Vote Failed",
-                description: error.message,
+                description: error.message || "An error occurred while voting",
                 variant: "destructive",
             });
         },
