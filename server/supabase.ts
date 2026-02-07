@@ -323,6 +323,30 @@ export interface Database {
                     resolved_at?: string | null;
                 };
             };
+            auth_users: {
+                Row: {
+                    id: string;
+                    user_id: string;
+                    email_hash: string;
+                    password_hash: string;
+                    created_at: string;
+                    last_login: string | null;
+                    is_active: boolean;
+                };
+                Insert: {
+                    id?: string;
+                    user_id: string;
+                    email_hash: string;
+                    password_hash: string;
+                    created_at?: string;
+                    last_login?: string | null;
+                    is_active?: boolean;
+                };
+                Update: {
+                    last_login?: string | null;
+                    is_active?: boolean;
+                };
+            };
         };
     };
 }
@@ -339,3 +363,4 @@ export type VoteOutcome = Database["public"]["Tables"]["vote_outcomes"]["Row"];
 export type VoteAgreement =
     Database["public"]["Tables"]["vote_agreements"]["Row"];
 export type RumorVote = Database["public"]["Tables"]["rumor_votes"]["Row"];
+export type AuthUser = Database["public"]["Tables"]["auth_users"]["Row"];

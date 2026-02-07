@@ -61,47 +61,125 @@ export async function registerRoutes(
     // ⚠️ Remove in production!
     app.use("/api/demo", demoRouter);
 
-    // Authentication endpoints
-    app.post("/api/auth/set-user-id", (req, res) => {
-        const { userId } = req.body;
+    // Anonymous Authentication Endpoints
+    app.post("/api/auth/request-otp", async (req, res) => {
+        try {
+            const { email } = req.body;
 
-        // Validation
-        if (!userId || typeof userId !== "string") {
-            return res.status(400).json({ error: "User ID is required" });
-        }
-
-        const trimmedId = userId.trim();
-
-        if (trimmedId.length < 3) {
-            return res
-                .status(400)
-                .json({ error: "User ID must be at least 3 characters" });
-        }
-
-        if (trimmedId.length > 50) {
-            return res
-                .status(400)
-                .json({ error: "User ID must be less than 50 characters" });
-        }
-
-        // Store in session
-        req.session.userId = trimmedId;
-
-        // Save session before responding
-        req.session.save((err) => {
-            if (err) {
-                console.error("Session save error:", err);
-                return res
-                    .status(500)
-                    .json({ error: "Failed to save session" });
+            if (!email || typeof email !== "string") {
+                return res.status(400).json({ message: "Email is required" });
             }
-            res.json({ success: true, userId: trimmedId });
+
+            const { requestOTP } = await import("./auth");
+            const result = await requestOTP(email);
+
+            if (!result.success) {
+                return res.status(400).json({ message: result.message, alreadyRegistered: result.alreadyRegistered });
+            }
+
+            res.json({ message: result.message });
+        } catch (error) {
+            console.error("[API] Error requesting OTP:", error);
+            res.status(500).json({ message: "Failed to send OTP" });
+        }
+    });
+
+    app.post("/api/auth/verify-otp", async (req, res) => {
+        try {
+            const { email, otp } = req.body;
+
+            if (!email || !otp) {
+                return res.status(400).json({ message: "Email and OTP are required" });
+            }
+
+            const { verifyOTPAndRegister } = await import("./auth");
+            const result = await verifyOTPAndRegister(email, otp);
+
+            if (!result.success) {
+                return res.status(400).json({
+                    message: result.message,
+                    alreadyRegistered: result.alreadyRegistered
+                });
+            }
+
+            // Set session
+            req.session.userId = result.userId!;
+            req.session.save((err) => {
+                if (err) {
+                    console.error("Session save error:", err);
+                    return res.status(500).json({ message: "Failed to create session" });
+                }
+
+                res.json({
+                    message: result.message,
+                    userId: result.userId,
+                    password: result.password,
+                });
+            });
+        } catch (error) {
+            console.error("[API] Error verifying OTP:", error);
+            res.status(500).json({ message: "Failed to verify OTP" });
+        }
+    });
+
+    app.post("/api/auth/login", async (req, res) => {
+        try {
+            const { userId, password } = req.body;
+
+            if (!userId || !password) {
+                return res.status(400).json({ message: "User ID and password are required" });
+            }
+
+            const { login } = await import("./auth");
+            const result = await login(userId, password);
+
+            if (!result.success) {
+                return res.status(401).json({ message: result.message });
+            }
+
+            // Set session
+            req.session.userId = result.userId!;
+            req.session.save((err) => {
+                if (err) {
+                    console.error("Session save error:", err);
+                    return res.status(500).json({ message: "Failed to create session" });
+                }
+
+                res.json({ message: result.message, userId: result.userId });
+            });
+        } catch (error) {
+            console.error("[API] Error logging in:", error);
+            res.status(500).json({ message: "Failed to login" });
+        }
+    });
+
+    app.post("/api/auth/logout", (req, res) => {
+        req.session.destroy((err) => {
+            if (err) {
+                console.error("Session destroy error:", err);
+                return res.status(500).json({ message: "Failed to logout" });
+            }
+            res.json({ message: "Logged out successfully" });
+        });
+    });
+
+    // Legacy authentication endpoint - DEPRECATED
+    // Users should use /register or /login instead
+    // Kept only for backward compatibility, will be removed
+    app.post("/api/auth/set-user-id", (req, res) => {
+        console.warn("[Auth] DEPRECATED: /api/auth/set-user-id called. Use /api/auth/login instead.");
+
+        // Return error to force users to proper auth flow
+        return res.status(403).json({
+            error: "This authentication method is deprecated. Please register at /register or login at /login",
+            redirectTo: "/login"
         });
     });
 
     app.get("/api/auth/status", (req, res) => {
-        if (req.isAuthenticated()) {
-            res.json({ authenticated: true, userId: req.user!.id });
+        // Check if user has a valid session with userId
+        if (req.session.userId) {
+            res.json({ authenticated: true, userId: req.session.userId });
         } else {
             res.json({ authenticated: false });
         }

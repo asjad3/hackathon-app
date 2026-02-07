@@ -34,9 +34,20 @@ async function fetchUser(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
-  // Clear localStorage to force login modal on next visit
-  localStorage.removeItem('userId');
-  window.location.href = "/api/logout";
+  try {
+    // Call logout endpoint
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+  } finally {
+    // Clear localStorage
+    localStorage.removeItem('userId');
+    // Redirect to login page
+    window.location.href = "/login";
+  }
 }
 
 export function useAuth() {
