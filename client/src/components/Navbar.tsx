@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-import { ShieldCheck, LogOut, Terminal, Activity } from "lucide-react";
+import { LogOut, Terminal } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
