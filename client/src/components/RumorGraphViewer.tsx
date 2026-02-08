@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl } from "@shared/routes";
+import { api, buildUrl } from "@/shared/routes";
+import { apiUrl } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +46,7 @@ export function RumorGraphViewer({ rumorId }: RumorGraphViewerProps) {
     const { data: graph } = useQuery({
         queryKey: [`/api/rumors/${rumorId}/graph`],
         queryFn: async () => {
-            const url = buildUrl(api.relationships.graph.path, { id: rumorId });
+            const url = apiUrl(buildUrl(api.relationships.graph.path, { id: rumorId }));
             const res = await fetch(url, { credentials: "include" });
             if (!res.ok) throw new Error("Failed to fetch graph");
             return api.relationships.graph.responses[200].parse(
@@ -68,9 +69,9 @@ export function RumorGraphViewer({ rumorId }: RumorGraphViewerProps) {
 
     const createRelationship = useMutation({
         mutationFn: async () => {
-            const url = buildUrl(api.relationships.create.path, {
+            const url = apiUrl(buildUrl(api.relationships.create.path, {
                 id: rumorId,
-            });
+            }));
             const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -246,7 +247,7 @@ export function RumorGraphViewer({ rumorId }: RumorGraphViewerProps) {
                                             <div className="flex items-center gap-2 mb-1">
                                                 {getStatusIcon(
                                                     connectedRumor?.status ||
-                                                        "",
+                                                    "",
                                                 )}
                                                 <span className="text-xs font-mono text-muted-foreground">
                                                     #{connectedRumor?.id}{" "}
@@ -292,11 +293,10 @@ export function RumorGraphViewer({ rumorId }: RumorGraphViewerProps) {
                                     return (
                                         <div
                                             key={node.id}
-                                            className={`p-3 rounded border ${
-                                                isCurrentRumor
+                                            className={`p-3 rounded border ${isCurrentRumor
                                                     ? "bg-primary/10 border-primary/40"
                                                     : "bg-background/50 border-border/30"
-                                            }`}
+                                                }`}
                                         >
                                             <div className="flex items-center gap-2 mb-2">
                                                 {getStatusIcon(node.status)}
@@ -331,12 +331,12 @@ export function RumorGraphViewer({ rumorId }: RumorGraphViewerProps) {
                                                                 className="text-xs"
                                                             >
                                                                 {edge.source ===
-                                                                node.id
+                                                                    node.id
                                                                     ? "→"
                                                                     : "←"}{" "}
                                                                 #
                                                                 {edge.source ===
-                                                                node.id
+                                                                    node.id
                                                                     ? edge.target
                                                                     : edge.source}
                                                             </Badge>

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Shield, KeyRound, Loader2, CheckCircle, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
@@ -26,7 +27,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/request-otp", {
+      const res = await fetch(apiUrl("/api/auth/request-otp"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -60,7 +61,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/verify-otp", {
+      const res = await fetch(apiUrl("/api/auth/verify-otp"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),

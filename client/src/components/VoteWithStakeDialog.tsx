@@ -13,7 +13,8 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { ThumbsUp, ThumbsDown, Coins, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@shared/routes";
+import { api } from "@/shared/routes";
+import { apiUrl } from "@/lib/api";
 
 interface VoteWithStakeDialogProps {
     evidenceId: string;
@@ -42,7 +43,7 @@ export function VoteWithStakeDialog({
     const { data: stats } = useQuery({
         queryKey: [api.user.stats.path],
         queryFn: async () => {
-            const res = await fetch(api.user.stats.path, {
+            const res = await fetch(apiUrl(api.user.stats.path), {
                 credentials: "include",
             });
             if (!res.ok) return null;

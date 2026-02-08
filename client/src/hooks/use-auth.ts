@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { User } from "@shared/models/auth";
+import type { User } from "@/shared/models/auth";
+import { apiUrl } from "@/lib/api";
 
 async function fetchUser(): Promise<User | null> {
-  const response = await fetch("/api/auth/status", {
+  const response = await fetch(apiUrl("/api/auth/status"), {
     credentials: "include",
   });
 
@@ -36,7 +37,7 @@ async function fetchUser(): Promise<User | null> {
 async function logout(): Promise<void> {
   try {
     // Call logout endpoint
-    await fetch("/api/auth/logout", {
+    await fetch(apiUrl("/api/auth/logout"), {
       method: "POST",
       credentials: "include",
     });

@@ -1,5 +1,5 @@
-import React from "react";
 import { useRoute } from "wouter";
+import React from "react";
 import { useRumor, useVoteEvidence } from "@/hooks/use-rumors";
 import { Navbar } from "@/components/Navbar";
 import { TrustScore } from "@/components/TrustScore";
@@ -9,7 +9,6 @@ import { UserStatsCard } from "@/components/UserStatsCard";
 import { VoteWithStakeDialog } from "@/components/VoteWithStakeDialog";
 import { VoteOnRumorDialog } from "@/components/VoteOnRumorDialog";
 import { RumorGraphViewer } from "@/components/RumorGraphViewer";
-import { DepartmentBadge } from "@/components/DepartmentBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +24,6 @@ import {
     ThumbsUp,
     ThumbsDown,
     ExternalLink,
-    User2,
 } from "lucide-react";
 import {
     LineChart,
@@ -98,10 +96,10 @@ export default function RumorDetailPage() {
                                         </Badge>
                                     ) : (
                                         <Badge className={`font-bold text-lg px-4 py-2 ${(rumor as any).status === "Verified"
-                                                ? "bg-[hsl(var(--status-verified))] text-white"
-                                                : (rumor as any).status === "Debunked"
-                                                    ? "bg-destructive text-white"
-                                                    : "bg-muted text-foreground"
+                                            ? "bg-[hsl(var(--status-verified))] text-white"
+                                            : (rumor as any).status === "Debunked"
+                                                ? "bg-destructive text-white"
+                                                : "bg-muted text-foreground"
                                             }`}>
                                             {(rumor as any).status === "Verified" && "✓ VERIFIED"}
                                             {(rumor as any).status === "Debunked" && "✗ DEBUNKED"}
@@ -129,19 +127,10 @@ export default function RumorDetailPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                     <div className="lg:col-span-2 space-y-6">
                         <div className="space-y-2">
-                            <div className="flex items-center gap-3 text-muted-foreground text-sm font-mono flex-wrap">
+                            <div className="flex items-center gap-3 text-muted-foreground text-sm font-mono">
                                 <span>
                                     RUMOR_ID: {id.substring(0, 8).toUpperCase()}
                                 </span>
-                                {(rumor as any).poster_department && (
-                                    <>
-                                        <span>•</span>
-                                        <div className="flex items-center gap-1.5">
-                                            <User2 className="h-3 w-3" />
-                                            <DepartmentBadge department={(rumor as any).poster_department} size="sm" />
-                                        </div>
-                                    </>
-                                )}
                                 {((rumor as any).score_above_75_since ||
                                     (rumor as any).score_below_25_since) && (
                                         <>
@@ -437,19 +426,6 @@ function EvidenceCard({
     return (
         <Card className="bg-card/30 border-border/50 hover:bg-card/50 transition-colors">
             <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {item.creator_department && (
-                            <DepartmentBadge department={item.creator_department} size="sm" />
-                        )}
-                        <span className="text-xs text-muted-foreground font-mono">
-                            {formatDistanceToNow(new Date(item.created_at), {
-                                addSuffix: true,
-                            })}
-                        </span>
-                    </div>
-                </div>
-
                 <p className="text-sm leading-relaxed">
                     {item.content_text || "No description provided"}
                 </p>
@@ -479,7 +455,13 @@ function EvidenceCard({
                     </a>
                 )}
 
-                <div className="flex items-center justify-end pt-2">
+                <div className="flex items-center justify-between pt-2">
+                    <span className="text-xs text-muted-foreground font-mono">
+                        {formatDistanceToNow(new Date(item.created_at), {
+                            addSuffix: true,
+                        })}
+                    </span>
+
                     <div className="flex items-center gap-2">
                         <VoteWithStakeDialog
                             evidenceId={item.id}

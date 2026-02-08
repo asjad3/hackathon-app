@@ -17,7 +17,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
-import { insertRumorSchema } from "@shared/schema";
+import { insertRumorSchema } from "@/shared/schema";
 import { uploadImage, isCloudinaryConfigured } from "@/lib/cloudinary";
 import { useToast } from "@/hooks/use-toast";
 
@@ -123,10 +123,10 @@ export function CreateRumorDialog() {
                 <FormItem>
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">What did you hear?</Label>
                   <FormControl>
-                    <Textarea 
-                      placeholder="e.g. The library is closing early next week due to..." 
+                    <Textarea
+                      placeholder="e.g. The library is closing early next week due to..."
                       className="min-h-[120px] resize-none text-sm bg-secondary/50 border-border focus:ring-primary/20"
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <div className="flex justify-between items-center">
@@ -174,8 +174,8 @@ export function CreateRumorDialog() {
             </div>
 
             <DialogFooter>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isPending}
                 className="w-full font-semibold"
               >

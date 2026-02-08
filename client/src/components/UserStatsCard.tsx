@@ -1,6 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@shared/routes";
+import { api } from "@/shared/routes";
+import { apiUrl } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -11,7 +12,7 @@ export function UserStatsCard() {
     const { data: stats, isLoading } = useQuery({
         queryKey: [api.user.stats.path],
         queryFn: async () => {
-            const res = await fetch(api.user.stats.path, {
+            const res = await fetch(apiUrl(api.user.stats.path), {
                 credentials: "include",
             });
             if (!res.ok) throw new Error("Failed to fetch user stats");

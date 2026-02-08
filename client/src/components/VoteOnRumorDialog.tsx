@@ -12,8 +12,9 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, ShieldAlert, Coins, TrendingUp } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
+import { api } from "@/shared/routes";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 interface VoteOnRumorDialogProps {
     rumorId: string;
@@ -31,7 +32,7 @@ export function VoteOnRumorDialog({ rumorId, voteType, disabled = false, disable
     const { data: stats } = useQuery({
         queryKey: [api.user.stats.path],
         queryFn: async () => {
-            const res = await fetch(api.user.stats.path, {
+            const res = await fetch(apiUrl(api.user.stats.path), {
                 credentials: "include",
             });
             if (!res.ok) return null;
@@ -41,7 +42,7 @@ export function VoteOnRumorDialog({ rumorId, voteType, disabled = false, disable
 
     const voteRumor = useMutation({
         mutationFn: async ({ voteType, stakeAmount }: { voteType: "verify" | "debunk"; stakeAmount: number }) => {
-            const url = `/api/rumors/${rumorId}/vote`;
+            const url = apiUrl(`/api/rumors/${rumorId}/vote`);
             const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

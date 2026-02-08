@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, User, Lock, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -25,7 +26,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, password }),

@@ -1,7 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { api } from "@shared/routes";
+import { api } from "./shared/routes";
 import { z } from "zod";
 import { rateLimit } from "./middleware/rateLimit";
 import session from "express-session";
@@ -15,7 +15,7 @@ function setupMockAuth(app: Express) {
             secret: process.env.SESSION_SECRET || "hackathon-dev-secret-2026",
             resave: false,
             saveUninitialized: false, // Don't auto-create sessions
-            cookie: { secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 days
+            cookie: { secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 days
         }),
     );
 

@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl } from "@shared/routes";
+import { api, buildUrl } from "@/shared/routes";
 import { useToast } from "@/hooks/use-toast";
-import { InsertRumor, InsertEvidence } from "@shared/schema";
+import { InsertRumor, InsertEvidence } from "@/shared/schema";
+import { apiUrl } from "@/lib/api";
 import { z } from "zod";
 
 // Types derived from the API definition
@@ -12,7 +13,7 @@ export function useRumors() {
     return useQuery({
         queryKey: [api.rumors.list.path],
         queryFn: async () => {
-            const res = await fetch(api.rumors.list.path, {
+            const res = await fetch(apiUrl(api.rumors.list.path), {
                 credentials: "include",
             });
             if (!res.ok) throw new Error("Failed to fetch rumors");
@@ -25,7 +26,7 @@ export function useRumor(id: string) {
     return useQuery({
         queryKey: [api.rumors.get.path, id],
         queryFn: async () => {
-            const url = buildUrl(api.rumors.get.path, { id });
+            const url = apiUrl(buildUrl(api.rumors.get.path, { id }));
             const res = await fetch(url, { credentials: "include" });
             if (res.status === 404) return null;
             if (!res.ok) throw new Error("Failed to fetch rumor");
@@ -41,7 +42,7 @@ export function useCreateRumor() {
 
     return useMutation({
         mutationFn: async (data: InsertRumor) => {
-            const res = await fetch(api.rumors.create.path, {
+            const res = await fetch(apiUrl(api.rumors.create.path), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data),
@@ -87,7 +88,7 @@ export function useCreateEvidence() {
             imageUrl,
             ...data
         }: InsertEvidence & { rumorId: string; imageUrl?: string }) => {
-            const url = buildUrl(api.evidence.create.path, { id: rumorId });
+            const url = apiUrl(buildUrl(api.evidence.create.path, { id: rumorId }));
             const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -137,7 +138,7 @@ export function useVoteEvidence() {
             rumorId: string;
             stakeAmount?: number;
         }) => {
-            const url = buildUrl(api.evidence.vote.path, { id: evidenceId });
+            const url = apiUrl(buildUrl(api.evidence.vote.path, { id: evidenceId }));
             const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
