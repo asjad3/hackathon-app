@@ -216,7 +216,7 @@ export class DatabaseStorage implements IStorage {
         console.log("[Storage] Creating rumor with AI analysis...");
 
         // 🤖 Run AI analysis synchronously BEFORE saving
-        const { analyzeRumor } = await import("./ai/analyzer");
+        const { analyzeRumor } = await import("./ai/analyzer.js");
         const createdAt = new Date().toISOString();
 
         let aiAnalysis;

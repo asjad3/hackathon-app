@@ -70,7 +70,7 @@ export async function registerRoutes(
                 return res.status(400).json({ message: "Email is required" });
             }
 
-            const { requestOTP } = await import("./auth");
+            const { requestOTP } = await import("./auth.js");
             const result = await requestOTP(email);
 
             if (!result.success) {
@@ -92,7 +92,7 @@ export async function registerRoutes(
                 return res.status(400).json({ message: "Email and OTP are required" });
             }
 
-            const { verifyOTPAndRegister } = await import("./auth");
+            const { verifyOTPAndRegister } = await import("./auth.js");
             const result = await verifyOTPAndRegister(email, otp);
 
             if (!result.success) {
@@ -130,7 +130,7 @@ export async function registerRoutes(
                 return res.status(400).json({ message: "User ID and password are required" });
             }
 
-            const { login } = await import("./auth");
+            const { login } = await import("./auth.js");
             const result = await login(userId, password);
 
             if (!result.success) {
