@@ -1,12 +1,12 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { api } from "./shared/routes";
+import { storage } from "./storage.js";
+import { api } from "./shared/routes.js";
 import { z } from "zod";
-import { rateLimit } from "./middleware/rateLimit";
+import { rateLimit } from "./middleware/rateLimit.js";
 import session from "express-session";
 import { randomUUID, createHash } from "crypto";
-import { demoRouter } from "./demo-resolution";
+import { demoRouter } from "./demo-resolution.js";
 
 // User ID authentication for local development
 function setupMockAuth(app: Express) {

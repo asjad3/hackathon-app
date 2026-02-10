@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
-import { supabase } from "./supabase";
-import { sendOTPEmail, sendCredentialsEmail } from "./email";
+import { supabase } from "./supabase.js";
+import { sendOTPEmail, sendCredentialsEmail } from "./email.js";
 
 // In-memory OTP storage (in production, use Redis)
 const otpStore = new Map<string, { otp: string; expiresAt: number }>();

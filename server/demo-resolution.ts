@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { storage } from "./storage";
-import { supabase } from "./supabase";
+import { storage } from "./storage.js";
+import { supabase } from "./supabase.js";
 
 /**
  * DEMO/TESTING ENDPOINTS

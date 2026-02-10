@@ -5,7 +5,7 @@ import {
     rumors,
     evidence,
     auditLog,
-} from "./schema";
+} from "./schema.js";
 
 export const errorSchemas = {
     validation: z.object({

@@ -1,4 +1,4 @@
-import { supabase, type Rumor, type Evidence, type AuditLog } from "./supabase";
+import { supabase, type Rumor, type Evidence, type AuditLog } from "./supabase.js";
 import { createHash } from "crypto";
 
 type RumorStatus = "Active" | "Verified" | "Debunked" | "Inconclusive";
@@ -249,17 +249,17 @@ export class DatabaseStorage implements IStorage {
 
         // 💾 Save rumor with AI analysis results
         const insertData: Record<string, any> = {
-                content,
-                image_url: imageUrl || null,
-                // AI analysis fields
-                ai_summary: aiAnalysis.summary,
-                summary: aiAnalysis.summary, // Backward compatibility
-                is_time_bound: aiAnalysis.isTimeBound,
-                expiry_date: aiAnalysis.expiryDate,
-                censored_content: aiAnalysis.censoredContent,
-                has_harmful_content: aiAnalysis.hasHarmfulContent,
-                ai_confidence: aiAnalysis.analysisMetadata.confidence,
-                ai_processed_at: new Date().toISOString(),
+            content,
+            image_url: imageUrl || null,
+            // AI analysis fields
+            ai_summary: aiAnalysis.summary,
+            summary: aiAnalysis.summary, // Backward compatibility
+            is_time_bound: aiAnalysis.isTimeBound,
+            expiry_date: aiAnalysis.expiryDate,
+            censored_content: aiAnalysis.censoredContent,
+            has_harmful_content: aiAnalysis.hasHarmfulContent,
+            ai_confidence: aiAnalysis.analysisMetadata.confidence,
+            ai_processed_at: new Date().toISOString(),
         };
 
         // Add poster department if available (column may not exist yet)
@@ -303,12 +303,12 @@ export class DatabaseStorage implements IStorage {
         creatorDepartment?: string | null;
     }): Promise<Evidence> {
         const insertData: Record<string, any> = {
-                rumor_id: data.rumorId,
-                evidence_type: data.evidenceType,
-                content_type: data.contentType,
-                content_url: data.contentUrl || null,
-                content_text: data.contentText || null,
-                creator_hash: data.creatorHash,
+            rumor_id: data.rumorId,
+            evidence_type: data.evidenceType,
+            content_type: data.contentType,
+            content_url: data.contentUrl || null,
+            content_text: data.contentText || null,
+            creator_hash: data.creatorHash,
         };
 
         if (data.creatorDepartment) {

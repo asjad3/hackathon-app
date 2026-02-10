@@ -11,10 +11,10 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { users } from "./models/auth";
+import { users } from "./models/auth.js";
 
 // Re-export auth models
-export * from "./models/auth";
+export * from "./models/auth.js";
 
 export const rumorStatusEnum = pgEnum("rumor_status", [
     "active",
