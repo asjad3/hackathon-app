@@ -2,8 +2,8 @@ import "dotenv/config";
 import { createServer } from "http";
 import cors from "cors";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
+import { registerRoutes } from "./routes.js";
+import { serveStatic } from "./static.js";
 
 const app = express();
 const httpServer = createServer(app);
