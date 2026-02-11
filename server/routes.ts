@@ -15,7 +15,11 @@ function setupMockAuth(app: Express) {
             secret: process.env.SESSION_SECRET || "hackathon-dev-secret-2026",
             resave: false,
             saveUninitialized: false, // Don't auto-create sessions
-            cookie: { secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 days
+            cookie: {
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+            }, // 7 days
         }),
     );
 
@@ -74,7 +78,12 @@ export async function registerRoutes(
             const result = await requestOTP(email);
 
             if (!result.success) {
-                return res.status(400).json({ message: result.message, alreadyRegistered: result.alreadyRegistered });
+                return res
+                    .status(400)
+                    .json({
+                        message: result.message,
+                        alreadyRegistered: result.alreadyRegistered,
+                    });
             }
 
             res.json({ message: result.message });
@@ -89,7 +98,9 @@ export async function registerRoutes(
             const { email, otp } = req.body;
 
             if (!email || !otp) {
-                return res.status(400).json({ message: "Email and OTP are required" });
+                return res
+                    .status(400)
+                    .json({ message: "Email and OTP are required" });
             }
 
             const { verifyOTPAndRegister } = await import("./auth");
@@ -98,7 +109,7 @@ export async function registerRoutes(
             if (!result.success) {
                 return res.status(400).json({
                     message: result.message,
-                    alreadyRegistered: result.alreadyRegistered
+                    alreadyRegistered: result.alreadyRegistered,
                 });
             }
 
@@ -107,7 +118,9 @@ export async function registerRoutes(
             req.session.save((err) => {
                 if (err) {
                     console.error("Session save error:", err);
-                    return res.status(500).json({ message: "Failed to create session" });
+                    return res
+                        .status(500)
+                        .json({ message: "Failed to create session" });
                 }
 
                 res.json({
@@ -127,7 +140,9 @@ export async function registerRoutes(
             const { userId, password } = req.body;
 
             if (!userId || !password) {
-                return res.status(400).json({ message: "User ID and password are required" });
+                return res
+                    .status(400)
+                    .json({ message: "User ID and password are required" });
             }
 
             const { login } = await import("./auth");
@@ -142,7 +157,9 @@ export async function registerRoutes(
             req.session.save((err) => {
                 if (err) {
                     console.error("Session save error:", err);
-                    return res.status(500).json({ message: "Failed to create session" });
+                    return res
+                        .status(500)
+                        .json({ message: "Failed to create session" });
                 }
 
                 res.json({ message: result.message, userId: result.userId });
@@ -167,12 +184,14 @@ export async function registerRoutes(
     // Users should use /register or /login instead
     // Kept only for backward compatibility, will be removed
     app.post("/api/auth/set-user-id", (req, res) => {
-        console.warn("[Auth] DEPRECATED: /api/auth/set-user-id called. Use /api/auth/login instead.");
+        console.warn(
+            "[Auth] DEPRECATED: /api/auth/set-user-id called. Use /api/auth/login instead.",
+        );
 
         // Return error to force users to proper auth flow
         return res.status(403).json({
             error: "This authentication method is deprecated. Please register at /register or login at /login",
-            redirectTo: "/login"
+            redirectTo: "/login",
         });
     });
 
@@ -182,6 +201,79 @@ export async function registerRoutes(
             res.json({ authenticated: true, userId: req.session.userId });
         } else {
             res.json({ authenticated: false });
+        }
+    });
+
+    // Password Recovery Endpoints
+    app.post("/api/auth/verify-backup-code", async (req, res) => {
+        try {
+            const { userId, backupCode } = req.body;
+
+            if (!userId || typeof userId !== "string") {
+                return res.status(400).json({ message: "User ID is required" });
+            }
+
+            if (!backupCode || typeof backupCode !== "string") {
+                return res
+                    .status(400)
+                    .json({ message: "Backup code is required" });
+            }
+
+            const { verifyBackupCode } = await import("./auth");
+            const result = await verifyBackupCode(userId, backupCode);
+
+            if (!result.success) {
+                return res.status(400).json({ message: result.message });
+            }
+
+            res.json({ message: result.message, userId: result.userId });
+        } catch (error) {
+            console.error("Error verifying backup code:", error);
+            res.status(500).json({ message: "An error occurred" });
+        }
+    });
+
+    app.post("/api/auth/reset-password", async (req, res) => {
+        try {
+            const { userId, backupCode, newPassword } = req.body;
+
+            if (!userId || typeof userId !== "string") {
+                return res.status(400).json({ message: "User ID is required" });
+            }
+
+            if (!backupCode || typeof backupCode !== "string") {
+                return res
+                    .status(400)
+                    .json({ message: "Backup code is required" });
+            }
+
+            if (
+                !newPassword ||
+                typeof newPassword !== "string" ||
+                newPassword.length < 8
+            ) {
+                return res
+                    .status(400)
+                    .json({
+                        message: "Password must be at least 8 characters",
+                    });
+            }
+
+            const { resetPasswordWithBackupCode } = await import("./auth");
+            const result = await resetPasswordWithBackupCode(
+                userId,
+                backupCode,
+                newPassword,
+            );
+
+            if (!result.success) {
+                return res.status(400).json({ message: result.message });
+            }
+
+            res.json({ message: result.message });
+        } catch (error) {
+            console.error("Error resetting password:", error);
+            res.status(500).json({ message: "An error occurred" });
         }
     });
 

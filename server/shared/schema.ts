@@ -23,6 +23,16 @@ export const rumorStatusEnum = pgEnum("rumor_status", [
     "inconclusive",
 ]);
 
+// Backup codes for password recovery
+export const backupCodes = pgTable("backup_codes", {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    codeHash: text("code_hash").notNull(),
+    used: boolean("used").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    usedAt: timestamp("used_at"),
+});
+
 export const rumors = pgTable("rumors", {
     id: serial("id").primaryKey(),
     content: text("content").notNull(),
